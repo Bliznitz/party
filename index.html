@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Party Status</title>
+<meta name="theme-color" content="#1a1c2c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Party">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#1a1c2c;--panel:#262b44;--panel2:#333c57;--line:#566c86;--ink:#f4f4f4;--muted:#94b0c2;--red:#e43b44;--gold:#ffcd75;--green:#a7f070}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink)}
+  body{font-family:'VT323',ui-monospace,Menlo,monospace;font-size:21px;line-height:1.15;min-height:100vh;
+    background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);background-size:6px 6px;
+    -webkit-font-smoothing:none;-webkit-text-size-adjust:100%}
+  .px{font-family:'Press Start 2P',ui-monospace,monospace;letter-spacing:.5px}
+  .wrap{max-width:520px;margin:0 auto;
+    padding:calc(18px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  header h1{font-size:13px;color:var(--gold);text-shadow:2px 2px 0 #b13e53}
+  header .sub{font-size:17px;color:var(--muted);margin-top:4px}
+  button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;-webkit-tap-highlight-color:transparent}
+  a{color:#73eff7}
+  .btn{font-family:'Press Start 2P',monospace;font-size:10px;line-height:1.3;padding:11px 12px;background:var(--panel2);
+    color:var(--ink);border:3px solid var(--ink);box-shadow:3px 3px 0 #000;text-transform:uppercase;text-decoration:none;display:inline-block}
+  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+  .btn.primary{background:#38b764;color:#1a1c2c}
+  .btn.warn{background:#b13e53}
+  .btn.ghost{background:transparent;border-color:var(--line);box-shadow:none;color:var(--muted)}
+  .btn.small{font-size:8px;padding:8px 9px;border-width:2px;box-shadow:2px 2px 0 #000}
+  .btn[disabled]{opacity:.45}
+  .gear{font-size:26px;width:46px;height:44px;border:3px solid var(--line);background:var(--panel)}
+
+  .card{background:var(--panel);border:3px solid var(--ink);box-shadow:5px 5px 0 #000;padding:14px;margin-bottom:22px;position:relative}
+  .card::before{content:"";position:absolute;inset:3px;border:2px solid var(--c,#41a6f6);opacity:.55;pointer-events:none}
+  .card.stale .bars{opacity:.55}
+  .card h2{font-size:11px;color:var(--gold);margin-bottom:14px;line-height:1.5}
+  .head{display:flex;gap:12px;align-items:center}
+  .avatar{width:58px;height:58px;flex:none;display:grid;place-items:center;font-size:34px;background:var(--bg);border:3px solid var(--c,#41a6f6)}
+  .who{flex:1;min-width:0}
+  .name{font-size:12px;color:var(--c,#41a6f6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meta{color:var(--muted);font-size:18px;margin-top:4px}
+  .hearts{margin-top:3px;font-size:22px;letter-spacing:1px}
+  .hearts .on{color:var(--red)} .hearts .half{color:#ef7d57} .hearts .off{color:#333c57}
+  .seen{text-align:right;font-size:17px;color:var(--muted);flex:none}
+  .seen b{display:block;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--gold);margin-bottom:4px}
+  .seen.old b{color:#ef7d57}
+  .you-tag{font-family:'Press Start 2P',monospace;font-size:7px;background:var(--c);color:#1a1c2c;padding:3px 4px;margin-left:6px;vertical-align:middle}
+
+  .box{margin-top:12px;padding:8px 10px;background:#1a1c2c;font-size:19px;word-wrap:break-word}
+  .box .lbl{font-family:'Press Start 2P',monospace;font-size:8px;display:block;margin-bottom:5px}
+  .quest{border:2px dashed var(--gold)} .quest .lbl{color:var(--gold)}
+  .quest.overdue{border:2px solid var(--red);animation:flash 1s steps(2) infinite}
+  .quest.overdue .lbl{color:var(--red)}
+  @keyframes flash{50%{background:#5d275d}}
+  .loc{border:2px solid var(--line)} .loc .lbl{color:#73eff7}
+  .loc .fine{color:var(--muted);font-size:17px}
+  .note{border-left:4px solid var(--c);white-space:pre-wrap} .note .lbl{color:var(--muted);font-size:7px}
+  .rowbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-size:17px;padding:2px 7px;border:2px solid var(--line);background:#1a1c2c}
+  .bars{margin-top:12px;display:grid;gap:7px}
+  .bar{display:grid;grid-template-columns:22px 82px 1fr 26px;align-items:center;gap:6px}
+  .bar .ic{font-size:17px;text-align:center}
+  .bar .lb{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted)}
+  .bar .val{text-align:right;font-size:19px}
+  .segs{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;height:16px;padding:2px;background:#000;border:2px solid var(--line)}
+  .seg{background:#262b44} .seg.on{background:var(--sc)}
+  .bar.low .segs{border-color:var(--red);animation:pulse 1.2s steps(2) infinite}
+  .bar.low .val{color:var(--red)}
+  @keyframes pulse{50%{border-color:var(--line)}}
+
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .nudge{font-size:24px;width:48px;height:44px;background:var(--panel2);border:3px solid var(--ink);box-shadow:3px 3px 0 #000}
+  .nudge:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #000}
+  .nudge[disabled]{opacity:.4}
+  .hint{font-size:16px;color:var(--muted);margin-top:6px}
+
+  details.log{margin-top:12px}
+  details.log summary{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);cursor:pointer;list-style:none}
+  details.log summary::-webkit-details-marker{display:none}
+  details.log summary::before{content:"▶ "} details.log[open] summary::before{content:"▼ "}
+  .logrow{display:flex;gap:8px;padding:6px 0;border-bottom:1px dashed #333c57;font-size:18px}
+  .logrow .t{color:var(--muted);flex:none;width:92px} .logrow .h{flex:none;color:var(--red)}
+
+  .alert{background:#5d275d;border:3px solid var(--gold);box-shadow:4px 4px 0 #000;padding:12px;margin-bottom:18px}
+  .alert .px{font-size:9px;color:var(--gold);margin-bottom:8px}
+  .alert ul{list-style:none;margin-bottom:10px} .alert li{font-size:20px;padding:2px 0}
+  .banner{border:2px dashed var(--line);padding:9px 10px;margin-bottom:16px;font-size:18px;color:var(--muted)}
+  .banner b{color:var(--ink)}
+  .empty{border:3px dashed var(--line);padding:18px;text-align:center;color:var(--muted);margin-bottom:22px}
+  .empty .px{font-size:9px;color:var(--ink);margin-bottom:10px;line-height:1.6}
+  .code{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold);background:#000;border:2px solid var(--line);padding:10px;text-align:center;letter-spacing:1px;user-select:all;-webkit-user-select:all;margin:8px 0;word-break:break-all;line-height:1.5}
+
+  .sheet{position:fixed;inset:0;background:rgba(10,10,20,.82);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet.hidden{display:none}
+  .sheet .inner{background:var(--panel);border:3px solid var(--ink);border-bottom:none;width:100%;max-width:520px;max-height:92vh;overflow:auto;
+    padding:16px 14px calc(28px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+  .sheet h2{font-size:11px;color:var(--gold);margin-bottom:14px}
+  .sheet h3{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--ink);margin:18px 0 8px}
+  .field{margin-bottom:14px}
+  .field > label,.flabel{display:block;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);margin-bottom:7px}
+  input[type=text],input[type=time],textarea{width:100%;font:inherit;font-size:21px;color:var(--ink);background:#1a1c2c;border:2px solid var(--line);padding:7px 9px;border-radius:0;-webkit-appearance:none;appearance:none}
+  textarea{min-height:70px;resize:vertical}
+  input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+  .slider{display:grid;grid-template-columns:22px 82px 1fr 26px;align-items:center;gap:6px;margin-bottom:9px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent}
+  input[type=range]::-webkit-slider-runnable-track{height:10px;background:#000;border:2px solid var(--line)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:26px;margin-top:-10px;background:var(--sc,#fff);border:2px solid #fff;border-radius:0}
+  input[type=range]::-moz-range-track{height:8px;background:#000;border:2px solid var(--line)}
+  input[type=range]::-moz-range-thumb{width:18px;height:22px;background:var(--sc,#fff);border:2px solid #fff;border-radius:0}
+  .pick{display:flex;flex-wrap:wrap;gap:6px}
+  .pick button{font-size:17px;padding:4px 8px;border:2px solid var(--line);background:#1a1c2c;color:var(--ink)}
+  .pick button.sel{border-color:var(--gold);background:#5d275d}
+  .pick.av button{font-size:26px;width:46px;height:46px;padding:0}
+  .pick.col button{width:34px;height:34px;padding:0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .sheet .footer{display:flex;gap:10px;justify-content:space-between;margin-top:18px}
+  .ok{color:var(--green)} .bad{color:#ef7d57}
+
+  #toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);background:#000;border:3px solid var(--gold);padding:9px 14px;font-size:19px;z-index:20;max-width:90vw;display:none}
+  .msg{padding:30px 10px;text-align:center;color:var(--muted)}
+  .msg .px{font-size:10px;color:var(--gold);margin-bottom:14px;line-height:1.7}
+  .blink{animation:blink 1s steps(2) infinite} @keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 class="px">PARTY STATUS</h1>
+      <div class="sub" id="subtitle">Loading save file<span class="blink">_</span></div>
+    </div>
+    <button class="gear" id="gear" aria-label="Settings" onclick="openSettings()" style="display:none">⚙</button>
+  </header>
+  <div id="install"></div>
+  <div id="alerts"></div>
+  <main id="app"><div class="msg"><div class="px">INSERT COIN</div>Loading save file<span class="blink">_</span></div></main>
+</div>
+<div class="sheet hidden" id="sheet"><div class="inner" id="sheetInner"></div></div>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+const STATS=[
+  {k:'energy', label:'ENERGY', icon:'⚡', c:'#ffcd75'},
+  {k:'food',   label:'FOOD',   icon:'🍎', c:'#ef7d57'},
+  {k:'water',  label:'WATER',  icon:'💧', c:'#41a6f6'},
+  {k:'stamina',label:'STAMINA',icon:'💪', c:'#a7f070'},
+  {k:'mood',   label:'MOOD',   icon:'🙂', c:'#ff77a8'},
+  {k:'social', label:'SOCIAL', icon:'💬', c:'#73eff7'},
+];
+const STATUSES=[
+  {k:'hug',t:'Needs a hug',i:'🫂'},{k:'hangry',t:'Hangry',i:'😤'},{k:'dnd',t:'Do not disturb',i:'🔕'},
+  {k:'chatty',t:'Up for a chat',i:'💬'},{k:'field',t:'In the field',i:'🦇'},{k:'fumes',t:'Running on fumes',i:'🪫'},
+  {k:'headache',t:'Headache',i:'🤕'},{k:'overload',t:'Overloaded',i:'🌀'},{k:'cosy',t:'Cosy mode',i:'🛋️'},
+  {k:'focus',t:'Deep focus',i:'🎯'},{k:'poorly',t:'Poorly',i:'🤒'},{k:'buzzing',t:'Buzzing',i:'✨'},
+];
+const AVATARS=['🦊','🦇','🦉','🦔','🐻','🐺','🐸','🐱','🐶','🐉','🧙','🌿','🐑','🍄','🤖','👾'];
+const COLOURS=['#41a6f6','#ff77a8','#a7f070','#ffcd75','#ef7d57','#73eff7','#b48cf2','#38b764'];
+const NUDGES=[
+  {k:'hug',i:'🫂',t:'sent you a hug'},{k:'love',i:'❤️',t:'sent love'},
+  {k:'snack',i:'🍪',t:'says eat something'},{k:'water',i:'💧',t:'says drink some water'},
+  {k:'rest',i:'😴',t:'says go and rest'},{k:'ping',i:'📡',t:'wants a status update'},
+];
+
+const CFG=window.PARTY_CONFIG||{};
+const BASE=String(CFG.supabaseUrl||'').replace(/\/+$/,''), KEY=String(CFG.supabaseKey||'');
+const STORE='party-status-v1';
+let S={code:null,playerId:null};
+let players={}, nudges=[], loaded=false, gone=false;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp=n=>Math.max(0,Math.min(10,Math.round(Number(n)||0)));
+function loadStore(){try{const v=JSON.parse(localStorage.getItem(STORE)||'null');if(v&&v.code)S=v}catch(e){}}
+function saveStore(){try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}}
+function toast(t,ms=2800){const el=$('#toast');el.textContent=t;el.style.display='block';clearTimeout(toast._t);toast._t=setTimeout(()=>el.style.display='none',ms)}
+function uuid(){return crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16))}
+const fmtCode=c=>String(c||'').replace(/(.{4})(?=.)/g,'$1-');
+const cleanCode=c=>String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+
+/* ---------- server calls ---------- */
+function hdrs(forFunction){const h={'Content-Type':'application/json',apikey:KEY};if(forFunction||KEY.startsWith('eyJ'))h.Authorization='Bearer '+KEY;return h}
+async function rpc(name,args){
+  const r=await fetch(BASE+'/rest/v1/rpc/'+name,{method:'POST',headers:hdrs(false),body:JSON.stringify(args||{})});
+  const text=await r.text();
+  if(!r.ok){let m='';try{m=JSON.parse(text).message}catch(e){} throw new Error(m||('Server error '+r.status))}
+  return text?JSON.parse(text):null;
+}
+async function notify(body){
+  try{const r=await fetch(BASE+'/functions/v1/notify',{method:'POST',headers:hdrs(true),body:JSON.stringify(body)});
+    if(!r.ok) return null; return await r.json()}catch(e){return null}
+}
+
+/* ---------- time + stats helpers ---------- */
+function ago(iso){
+  if(!iso) return 'never';
+  const m=Math.floor((Date.now()-new Date(iso))/60000);
+  if(m<1) return 'just now'; if(m<60) return m+'m ago';
+  const h=Math.floor(m/60); if(h<24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
+}
+function clock(iso){return new Date(iso).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+function shortDate(iso){const d=new Date(iso);const today=new Date().toDateString()===d.toDateString();
+  return (today?'Today ':d.toLocaleDateString([], {weekday:'short'})+' ')+clock(iso)}
+function hp(stats){const v=STATS.map(s=>clamp(stats?.[s.k]));return v.reduce((a,b)=>a+b,0)/v.length}
+function hearts(stats){
+  const h=hp(stats)/2; let out='';
+  for(let i=0;i<5;i++){ out+= h>=i+1?'<span class="on">♥</span>': h>=i+0.5?'<span class="half">♥</span>':'<span class="off">♥</span>'; }
+  return out;
+}
+function level(p){return Math.floor((p.checkins||0)/7)+1}
+function showMsg(title,body){$('#app').innerHTML=`<div class="msg"><div class="px">${esc(title)}</div>${body}</div>`}
+
+/* WGS84 lat/lon to OS grid reference (Helmert transform, good to about 5 m). Empty outside Great Britain. */
+function osGrid(lat,lon){
+  if(!(lat>49.8&&lat<61&&lon>-8.7&&lon<1.9)) return '';
+  const rad=Math.PI/180;
+  let a=6378137,b=6356752.314245,e2=1-(b*b)/(a*a);
+  let phi=lat*rad,lam=lon*rad,nu=a/Math.sqrt(1-e2*Math.sin(phi)**2);
+  const x1=nu*Math.cos(phi)*Math.cos(lam),y1=nu*Math.cos(phi)*Math.sin(lam),z1=nu*(1-e2)*Math.sin(phi);
+  const tx=-446.448,ty=125.157,tz=-542.060,s=1+20.4894e-6,rx=-0.1502/3600*rad,ry=-0.2470/3600*rad,rz=-0.8421/3600*rad;
+  const x2=tx+x1*s-y1*rz+z1*ry,y2=ty+x1*rz+y1*s-z1*rx,z2=tz-x1*ry+y1*rx+z1*s;
+  a=6377563.396;b=6356256.909;e2=1-(b*b)/(a*a);
+  const p=Math.sqrt(x2*x2+y2*y2);phi=Math.atan2(z2,p*(1-e2));let prev=9;
+  while(Math.abs(phi-prev)>1e-12){nu=a/Math.sqrt(1-e2*Math.sin(phi)**2);prev=phi;phi=Math.atan2(z2+e2*nu*Math.sin(phi),p)}
+  lam=Math.atan2(y2,x2);
+  const F0=0.9996012717,phi0=49*rad,lam0=-2*rad,N0=-100000,E0=400000,n=(a-b)/(a+b),n2=n*n,n3=n*n*n;
+  const cos=Math.cos(phi),sin=Math.sin(phi);nu=a*F0/Math.sqrt(1-e2*sin*sin);
+  const rho=a*F0*(1-e2)/Math.pow(1-e2*sin*sin,1.5),eta2=nu/rho-1;
+  const M=b*F0*((1+n+1.25*n2+1.25*n3)*(phi-phi0)-(3*n+3*n2+2.625*n3)*Math.sin(phi-phi0)*Math.cos(phi+phi0)
+    +(1.875*n2+1.875*n3)*Math.sin(2*(phi-phi0))*Math.cos(2*(phi+phi0))-(35/24)*n3*Math.sin(3*(phi-phi0))*Math.cos(3*(phi+phi0)));
+  const tan2=Math.tan(phi)**2,tan4=tan2*tan2,cos3=cos**3,cos5=cos**5,dl=lam-lam0;
+  const N=M+N0+(nu/2)*sin*cos*dl**2+(nu/24)*sin*cos3*(5-tan2+9*eta2)*dl**4+(nu/720)*sin*cos5*(61-58*tan2+tan4)*dl**6;
+  const E=E0+nu*cos*dl+(nu/6)*cos3*(nu/rho-tan2)*dl**3+(nu/120)*cos5*(5-18*tan2+tan4+14*eta2-58*tan2*eta2)*dl**5;
+  if(!(E>=0&&E<700000&&N>=0&&N<1300000)) return '';
+  const e100=Math.floor(E/100000),n100=Math.floor(N/100000);
+  let l1=(19-n100)-(19-n100)%5+Math.floor((e100+10)/5),l2=(19-n100)*5%25+e100%5;
+  if(l1>7)l1++; if(l2>7)l2++;
+  const pad=v=>String(Math.floor(v%100000)).padStart(5,'0');
+  return String.fromCharCode(l1+65,l2+65)+' '+pad(E)+' '+pad(N);
+}
+function w3w(text){const m=String(text||'').toLowerCase().match(/(?:^|[\s/])([a-z]{2,}\.[a-z]{2,}\.[a-z]{2,})(?=$|[\s,;])/);return m?m[1]:''}
+
+/* ---------- boot ---------- */
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const standalone=()=>navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
+let swReady=null;
+async function boot(){
+  if(!BASE||!KEY){$('#subtitle').textContent='Not set up';showMsg('NOT SET UP YET','This copy of the app has no server details. Fill in config.js.');return}
+  if('serviceWorker' in navigator){
+    swReady=navigator.serviceWorker.register('sw.js').catch(()=>null);
+    navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='refresh')refresh()});
+  }
+  loadStore();
+  const m=location.hash.match(/^#join=([A-Za-z0-9-]+)/);
+  renderInstall();
+  if(!S.code){ $('#subtitle').textContent='No party yet'; renderStart(m?cleanCode(m[1]):''); return }
+  start();
+}
+function start(){
+  $('#gear').style.display='';
+  refresh();
+  setInterval(()=>{if(document.visibilityState==='visible')refresh()},20000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
+  resyncPush();
+}
+function renderInstall(){
+  $('#install').innerHTML=(isIOS()&&!standalone())
+    ?`<div class="banner"><b>Install this app:</b> tap the Share button, then <b>Add to Home Screen</b>, then open it from there. Notifications only work from the home screen version.</div>`:'';
+}
+
+/* ---------- start / join ---------- */
+function renderStart(prefill){
+  $('#app').innerHTML=`<section class="card"><h2 class="px">NEW GAME</h2>
+    <p style="margin-bottom:12px">Start a party, then give the code to your player 2.</p>
+    <div class="actions" style="margin-top:0"><button class="btn primary" id="newBtn" onclick="createParty()">Start a party</button></div></section>
+    <section class="card"><h2 class="px">JOIN GAME</h2>
+    <div class="field"><label for="jCode">Party code</label><input type="text" id="jCode" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX" value="${esc(fmtCode(prefill||''))}"></div>
+    <div class="actions" style="margin-top:0"><button class="btn primary" id="joinBtn" onclick="joinParty()">Join</button></div></section>`;
+}
+async function createParty(){
+  $('#newBtn').disabled=true;
+  try{const code=await rpc('party_create',{});S={code,playerId:null};saveStore();start()}
+  catch(e){toast('Couldn’t start a party: '+e.message,5000);$('#newBtn').disabled=false}
+}
+async function joinParty(){
+  const code=cleanCode($('#jCode').value); if(code.length<8){toast('That code looks too short.');return}
+  $('#joinBtn').disabled=true;
+  try{
+    const d=await rpc('party_get',{p_code:code});
+    if(!d){toast('No party with that code.');$('#joinBtn').disabled=false;return}
+    S={code,playerId:null};saveStore();
+    if(location.hash)history.replaceState(null,'',location.pathname);
+    start();
+  }catch(e){toast('Couldn’t join: '+e.message,5000);$('#joinBtn').disabled=false}
+}
+
+/* ---------- load + render ---------- */
+let refreshing=false;
+async function refresh(){
+  if(refreshing||!S.code) return; refreshing=true;
+  try{
+    const d=await rpc('party_get',{p_code:S.code});
+    if(!d){gone=true;$('#subtitle').textContent='Party not found';
+      showMsg('PARTY NOT FOUND','This party no longer exists.<div class="actions" style="justify-content:center"><button class="btn" onclick="leaveNow()">Start again</button></div>');return}
+    const next={}; (d.players||[]).forEach(p=>{next[p.id]=p.data||{}});
+    players=next; nudges=d.nudges||[]; loaded=true;
+    if(!busy()) render();
+  }catch(e){
+    if(!loaded){$('#subtitle').textContent='Offline';showMsg('NO SIGNAL','Can’t reach the server. It will retry when you’re back online.')}
+    else $('#subtitle').textContent='Offline · showing last known';
+  }finally{refreshing=false}
+}
+function busy(){
+  if(!$('#sheet').classList.contains('hidden')) return true;
+  const a=document.activeElement; return !!(a&&$('#app').contains(a)&&/^(INPUT|TEXTAREA)$/.test(a.tagName));
+}
+setInterval(()=>{if(loaded&&!gone&&!busy()&&document.visibilityState==='visible')render()},60000);
+
+function render(){
+  if(gone) return;
+  const n=Object.keys(players).length;
+  $('#subtitle').textContent=`${n} player${n===1?'':'s'} in party`;
+  const me=players[S.playerId];
+  if(!me){ renderWho(); renderAlerts(); return }
+  const others=Object.entries(players).filter(([id])=>id!==S.playerId);
+  let html=card(S.playerId,me,true);
+  if(!others.length){
+    html+=`<div class="empty"><div class="px">WAITING FOR PLAYER 2<span class="blink">_</span></div>
+      Send them the app link and this party code:<div class="code">${esc(fmtCode(S.code))}</div>
+      <button class="btn small" onclick="copyInvite()">Copy invite</button></div>`;
+  }
+  others.sort((a,b)=>String(b[1].updatedAt||'').localeCompare(String(a[1].updatedAt||''))).forEach(([id,p])=>html+=card(id,p,false));
+  $('#app').innerHTML=html;
+  renderAlerts();
+}
+
+function locBlock(l){
+  if(!l||(l.lat==null&&!l.text)) return '';
+  const has=typeof l.lat==='number'&&typeof l.lng==='number';
+  const grid=has?osGrid(l.lat,l.lng):'', words=w3w(l.text);
+  let h=`<div class="box loc"><span class="lbl">📍 LAST LOCATION${l.at?' · '+esc(shortDate(l.at)):''}</span>`;
+  if(l.text) h+=`<div>${esc(l.text)}</div>`;
+  if(has) h+=`<div class="fine">${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}${l.acc?' · ±'+esc(l.acc)+' m':''}${grid?' · '+grid:''}</div>`;
+  h+='<div class="rowbtns">';
+  if(has) h+=`<a class="btn small" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${l.lat},${l.lng}">Open in Maps</a>`;
+  if(words) h+=`<a class="btn small" target="_blank" rel="noopener" href="https://what3words.com/${esc(words)}">what3words</a>`;
+  return h+'</div></div>';
+}
+
+function card(id,p,mine){
+  const stale=!p.updatedAt||(Date.now()-new Date(p.updatedAt))>12*3600e3;
+  const col=COLOURS.includes(p.colour)?p.colour:'#41a6f6';
+  const av=AVATARS.includes(p.avatar)?p.avatar:'👾';
+  let quest='';
+  if(p.quest&&p.quest.text){
+    const back=p.quest.backBy?new Date(p.quest.backBy):null;
+    const overdue=back&&Date.now()>back.getTime();
+    quest=`<div class="box quest ${overdue?'overdue':''}"><span class="lbl">${overdue?'⚠ OVERDUE · NO CHECK-IN':'⚔ CURRENT QUEST'}</span>${esc(p.quest.text)}${back?` <span style="color:var(--muted)">· back by ${esc(shortDate(back))}</span>`:''}`
+      +(overdue&&!mine?`<div style="margin-top:6px">Try calling. Last known location is below.</div>`:'')
+      +(mine?`<div class="rowbtns"><button class="btn small primary" onclick="questDone(this)">I'm safe · quest done</button>${back?`<button class="btn small" onclick="extendQuest(this)">+30 min</button>`:''}</div>`:'')
+      +`</div>`;
+  }
+  const chips=(p.status||[]).map(k=>STATUSES.find(s=>s.k===k)).filter(Boolean).map(s=>`<span class="chip">${s.i} ${esc(s.t)}</span>`).join('');
+  const bars=STATS.map(s=>{
+    const v=clamp(p.stats?.[s.k]);
+    const segs=Array.from({length:10},(_,i)=>`<div class="seg ${i<v?'on':''}"></div>`).join('');
+    return `<div class="bar ${v<=3?'low':''}" style="--sc:${s.c}"><span class="ic">${s.icon}</span><span class="lb">${s.label}</span><div class="segs">${segs}</div><span class="val">${v}</span></div>`;
+  }).join('');
+  const log=(p.log||[]).slice(0,10).map(l=>`<div class="logrow"><span class="t">${esc(shortDate(l.at))}</span><span class="h">${hearts(l.stats)}</span><span>${esc(l.note||'')}</span></div>`).join('');
+  const actions=mine
+    ?`<div class="actions"><button class="btn primary" onclick="openEdit()">Update stats</button><button class="btn ghost" onclick="openChar()">Edit character</button></div>`
+    :`<div class="actions">${NUDGES.map(n=>`<button class="nudge" title="${esc(n.t)}" aria-label="${esc(n.t)}" onclick="sendNudge('${esc(id)}','${n.k}',this)">${n.i}</button>`).join('')}</div>
+      <div class="hint">Hug · love · snack · water · rest · request update</div>`;
+  return `<section class="card ${stale?'stale':''}" style="--c:${col}">
+    <div class="head"><div class="avatar">${av}</div>
+      <div class="who"><div class="name px">${esc((p.name||'Player').toUpperCase())}${mine?'<span class="you-tag">YOU</span>':''}</div>
+        <div class="meta">LV ${level(p)} ${esc(p.cls||'Adventurer')}</div>
+        <div class="hearts">${hearts(p.stats)}</div></div>
+      <div class="seen ${stale?'old':''}"><b>${stale?'STALE':'LAST SEEN'}</b>${esc(ago(p.updatedAt))}</div>
+    </div>
+    ${quest}${locBlock(p.loc)}
+    ${chips?`<div class="chips">${chips}</div>`:''}
+    <div class="bars">${bars}</div>
+    ${p.note?`<div class="box note"><span class="lbl">STATUS MESSAGE</span>${esc(p.note)}</div>`:''}
+    ${actions}
+    ${log?`<details class="log"><summary>Recent check-ins</summary>${log}</details>`:''}
+  </section>`;
+}
+
+function freshNudges(){
+  const me=players[S.playerId]; if(!me) return [];
+  const seen=me.nudgesSeenAt?new Date(me.nudgesSeenAt).getTime():0;
+  return nudges.filter(n=>n.to_player===S.playerId&&new Date(n.created_at).getTime()>seen).slice(0,8);
+}
+function renderAlerts(){
+  const fresh=freshNudges();
+  if(!fresh.length){$('#alerts').innerHTML='';return}
+  const rows=fresh.map(n=>{const k=NUDGES.find(x=>x.k===n.kind);if(!k)return'';
+    return `<li>${k.i} <b>${esc(players[n.from_player]?.name||'Someone')}</b> ${esc(k.t)} <span style="color:var(--muted)">· ${esc(ago(n.created_at))}</span></li>`}).join('');
+  $('#alerts').innerHTML=`<div class="alert"><div class="px">! NEW MESSAGE${fresh.length>1?'S':''}</div><ul>${rows}</ul>
+    <div class="row"><button class="btn" onclick="ackNudges()">OK</button>${fresh.some(n=>n.kind==='ping')?'<button class="btn primary" onclick="ackNudges();openEdit()">Send update</button>':''}</div></div>`;
+}
+
+/* ---------- character creation / reclaim ---------- */
+let draftChar=null, editChar=null;
+function renderWho(){
+  draftChar=draftChar||{name:'',cls:'',avatar:AVATARS[0],colour:COLOURS[0]};
+  const existing=Object.entries(players);
+  $('#app').innerHTML=`<section class="card" style="--c:${draftChar.colour}">
+    <h2 class="px">CREATE CHARACTER</h2>${charFields(draftChar)}
+    <div class="actions"><button class="btn primary" id="mkBtn" onclick="createChar()">Start game</button></div></section>
+    ${existing.length?`<details class="log" style="margin:0 0 22px"><summary>Already have a character here? Reclaim it</summary>
+      <p class="hint" style="margin:8px 0">Only for getting your own character back on a new phone.</p>
+      <div class="rowbtns">${existing.map(([id,p])=>`<button class="btn small" onclick="claim('${esc(id)}')">I am ${esc(p.name||'Player')}</button>`).join('')}</div></details>`:''}
+    <div class="hint">Party code: ${esc(fmtCode(S.code))} · <a href="#" onclick="leaveNow();return false">use a different code</a></div>`;
+}
+function charFields(c){
+  return `<div class="field"><label for="cName">Name</label><input type="text" id="cName" maxlength="20" value="${esc(c.name)}" placeholder="e.g. Lari"></div>
+    <div class="field"><label for="cCls">Class</label><input type="text" id="cCls" maxlength="24" value="${esc(c.cls)}" placeholder="e.g. Ecologist, Bat Whisperer"></div>
+    <div class="field"><span class="flabel">Avatar</span><div class="pick av">${AVATARS.map(a=>`<button type="button" class="${a===c.avatar?'sel':''}" onclick="pickOne(this,'avatar','${a}')">${a}</button>`).join('')}</div></div>
+    <div class="field"><span class="flabel">Colour</span><div class="pick col">${COLOURS.map(k=>`<button type="button" class="${k===c.colour?'sel':''}" style="background:${k}" aria-label="colour ${k}" onclick="pickOne(this,'colour','${k}')"></button>`).join('')}</div></div>`;
+}
+function pickOne(btn,key,val){
+  btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');
+  (editChar||draftChar)[key]=val;
+}
+function claim(id){ if(!players[id]) return; S.playerId=id; saveStore(); render(); resyncPush(); toast('Welcome back, '+(players[id].name||'Player')+'.') }
+async function createChar(){
+  const name=$('#cName').value.trim(); if(!name){toast('Your character needs a name.');return}
+  const id=uuid(), now=new Date().toISOString();
+  const doc={name,cls:$('#cCls').value.trim()||'Adventurer',avatar:draftChar.avatar,colour:draftChar.colour,
+    stats:Object.fromEntries(STATS.map(s=>[s.k,7])),status:[],note:'',quest:null,loc:null,updatedAt:now,checkins:0,log:[],nudgesSeenAt:now,tz:tzName()};
+  $('#mkBtn').disabled=true;
+  try{await rpc('player_save',{p_code:S.code,p_id:id,p_data:doc});S.playerId=id;saveStore();players[id]=doc;draftChar=null;document.activeElement&&document.activeElement.blur();render();toast('Character created. Welcome, '+name+'.')}
+  catch(e){toast('Couldn’t save: '+e.message,5000);$('#mkBtn').disabled=false}
+}
+function tzName(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){return ''}}
+
+/* ---------- saving ---------- */
+let saving=false;
+async function saveMe(doc,okMsg,event){
+  if(saving) return false; saving=true;
+  try{
+    await rpc('player_save',{p_code:S.code,p_id:S.playerId,p_data:doc});
+    players[S.playerId]=doc; if(okMsg) toast(okMsg);
+    if(event) notify({action:'event',code:S.code,from:S.playerId,type:event});
+    return true;
+  }catch(e){toast('Couldn’t save: '+e.message+'. Try again when you have signal.',5000);return false}
+  finally{saving=false}
+}
+
+/* ---------- update stats sheet ---------- */
+let edit=null;
+function openEdit(){
+  const p=players[S.playerId]; if(!p) return;
+  edit={stats:{...p.stats},status:[...(p.status||[])],loc:p.loc?{...p.loc}:{},backDirty:false};
+  const q=p.quest||{};
+  const overdue=q.backBy&&Date.now()>new Date(q.backBy).getTime();
+  const backVal=q.backBy?new Date(q.backBy).toTimeString().slice(0,5):'';
+  $('#sheetInner').innerHTML=`<h2 class="px">UPDATE STATS</h2>
+    ${STATS.map(s=>`<div class="slider" style="--sc:${s.c}"><span class="ic">${s.icon}</span><span class="lb px" style="font-size:8px;color:var(--muted)">${s.label}</span>
+      <input type="range" min="0" max="10" step="1" aria-label="${s.label}" value="${clamp(p.stats?.[s.k])}" oninput="edit.stats['${s.k}']=+this.value;this.nextElementSibling.textContent=this.value">
+      <span class="val" style="text-align:right">${clamp(p.stats?.[s.k])}</span></div>`).join('')}
+    <div class="field" style="margin-top:14px"><span class="flabel">Status effects</span>
+      <div class="pick">${STATUSES.map(s=>`<button type="button" class="${edit.status.includes(s.k)?'sel':''}" onclick="toggleStatus(this,'${s.k}')">${s.i} ${esc(s.t)}</button>`).join('')}</div></div>
+    <div class="field"><label for="eNote">Status message</label><textarea id="eNote" maxlength="280" placeholder="How's it going?">${esc(p.note||'')}</textarea></div>
+
+    <h3>⚔ QUEST + BACK-BY TIME</h3>
+    ${overdue?'<p class="bad" style="margin-bottom:8px">This quest is overdue. Set a new back-by time or mark it done.</p>':''}
+    <div class="field"><label for="eQuest">What you're doing (leave blank for none)</label><input type="text" id="eQuest" maxlength="80" value="${esc(q.text||'')}" placeholder="e.g. Bat survey, Thetford">
+      <div class="row" style="margin-top:8px"><span style="color:var(--muted)">Back by</span><input type="time" id="eBack" value="${backVal}" style="max-width:140px" oninput="edit.backDirty=true">
+        <button class="btn small" type="button" onclick="backIn(1)">+1h</button><button class="btn small" type="button" onclick="backIn(2)">+2h</button><button class="btn small" type="button" onclick="backIn(4)">+4h</button></div>
+      <div class="hint">Pass this time without checking in and your party gets an overdue alert, repeating every 15 minutes.</div>
+      ${q.text?'<div class="rowbtns"><button class="btn small ghost" type="button" onclick="clearQuestFields()">Clear quest</button></div>':''}</div>
+
+    <h3>📍 LOCATION</h3>
+    <div id="locState"></div>
+    <div class="rowbtns" style="margin:8px 0 10px"><button class="btn small" type="button" id="locBtn" onclick="grabLoc()">Use my current location</button>
+      <button class="btn small ghost" type="button" onclick="edit.loc={};$('#eLocText').value='';paintLoc()">Clear</button></div>
+    <div class="field"><label for="eLocText">Place, site name or what3words</label><input type="text" id="eLocText" maxlength="100" autocapitalize="none" value="${esc(p.loc?.text||'')}" placeholder="e.g. ///filled.count.soap or Park Farm"></div>
+    <div class="footer"><button class="btn ghost" onclick="closeSheet()">Cancel</button><button class="btn primary" id="saveBtn" onclick="saveEdit()">Save</button></div>`;
+  paintLoc();
+  $('#sheet').classList.remove('hidden');
+}
+function paintLoc(){
+  const l=edit&&edit.loc, el=$('#locState'); if(!el) return;
+  if(l&&typeof l.lat==='number'){const g=osGrid(l.lat,l.lng);
+    el.innerHTML=`<span class="ok">Fix saved:</span> ${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}${l.acc?' · ±'+esc(l.acc)+' m':''}${g?' · '+g:''} <span style="color:var(--muted)">· ${esc(ago(l.at))}</span>`}
+  else el.innerHTML='<span style="color:var(--muted)">No GPS fix attached.</span>';
+  const b=$('#locBtn'); if(b){b.disabled=false;b.textContent=(l&&typeof l.lat==='number')?'Update location':'Use my current location'}
+}
+function grabLoc(){
+  if(!navigator.geolocation){toast('This device won’t share location.');return}
+  const b=$('#locBtn'); b.disabled=true; b.textContent='Locating…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if(!edit) return;
+    edit.loc={...edit.loc,lat:+pos.coords.latitude.toFixed(6),lng:+pos.coords.longitude.toFixed(6),acc:Math.round(pos.coords.accuracy),at:new Date().toISOString()};
+    paintLoc();
+  },err=>{
+    toast(err.code===1?'Location is blocked. Allow it in Settings > Privacy > Location Services.':'No fix. Try again with a clear view of the sky.',5000);
+    if(edit) paintLoc();
+  },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+function toggleStatus(btn,k){const i=edit.status.indexOf(k); if(i>=0) edit.status.splice(i,1); else edit.status.push(k); btn.classList.toggle('sel')}
+function backIn(h){const d=new Date(Date.now()+h*3600e3);$('#eBack').value=d.toTimeString().slice(0,5);edit.backDirty=true}
+function clearQuestFields(){$('#eQuest').value='';$('#eBack').value='';edit.backDirty=true}
+function nextTime(hhmm){
+  if(!hhmm) return null; const [h,m]=hhmm.split(':').map(Number);
+  const d=new Date(); d.setHours(h,m,0,0); if(d.getTime()<=Date.now()) d.setDate(d.getDate()+1);
+  return d.toISOString();
+}
+async function saveEdit(){
+  const p=players[S.playerId], now=new Date().toISOString();
+  const stats=Object.fromEntries(STATS.map(s=>[s.k,clamp(edit.stats[s.k])]));
+  const note=$('#eNote').value.trim().slice(0,280);
+  const qt=$('#eQuest').value.trim().slice(0,80);
+  let quest=null;
+  if(qt){
+    const backBy=(edit.backDirty||!p.quest)?nextTime($('#eBack').value):(p.quest.backBy||null);
+    if(backBy&&new Date(backBy).getTime()<=Date.now()){toast('That quest is overdue. Pick a new back-by time, or clear the quest.',5000);return}
+    quest={text:qt,backBy};
+  }
+  const lt=$('#eLocText').value.trim().slice(0,100);
+  const l=edit.loc||{};
+  const loc=(typeof l.lat==='number'||lt)?{...(typeof l.lat==='number'?{lat:l.lat,lng:l.lng,acc:l.acc,at:l.at}:{at:now}),text:lt}:null;
+  const log=[{at:now,stats,note},...(p.log||[])].slice(0,20);
+  $('#saveBtn').disabled=true;
+  const ok=await saveMe({...p,stats,status:edit.status.slice(0,12),note,quest,loc,updatedAt:now,checkins:(p.checkins||0)+1,log,tz:tzName()},'Saved. Checkpoint reached.','update');
+  if(ok) closeSheet(); else $('#saveBtn').disabled=false;
+}
+async function questDone(btn){
+  const p=players[S.playerId]; if(!p||!p.quest) return; btn.disabled=true;
+  const now=new Date().toISOString();
+  const log=[{at:now,stats:p.stats,note:'✔ Safe. Quest done: '+p.quest.text},...(p.log||[])].slice(0,20);
+  const ok=await saveMe({...p,quest:null,updatedAt:now,checkins:(p.checkins||0)+1,log,tz:tzName()},'Quest complete. Party told you’re safe.','safe');
+  if(ok) render(); else btn.disabled=false;
+}
+async function extendQuest(btn){
+  const p=players[S.playerId]; if(!p||!p.quest||!p.quest.backBy) return; btn.disabled=true;
+  const base=Math.max(Date.now(),new Date(p.quest.backBy).getTime());
+  const backBy=new Date(base+30*60e3).toISOString(), now=new Date().toISOString();
+  const ok=await saveMe({...p,quest:{...p.quest,backBy},updatedAt:now,tz:tzName()},'Extended to '+clock(backBy)+'.','extend');
+  if(ok) render(); else btn.disabled=false;
+}
+
+/* ---------- edit character ---------- */
+function openChar(){
+  const p=players[S.playerId]; editChar={name:p.name,cls:p.cls,avatar:p.avatar,colour:p.colour};
+  $('#sheetInner').innerHTML=`<h2 class="px">EDIT CHARACTER</h2>${charFields(editChar)}
+    <div class="footer"><button class="btn ghost" onclick="closeSheet()">Cancel</button><button class="btn primary" onclick="saveChar()">Save</button></div>`;
+  $('#sheet').classList.remove('hidden');
+}
+async function saveChar(){
+  const name=$('#cName').value.trim(); if(!name){toast('Name required.');return}
+  const p=players[S.playerId];
+  const ok=await saveMe({...p,name,cls:$('#cCls').value.trim()||'Adventurer',avatar:editChar.avatar,colour:editChar.colour},'Character updated.');
+  if(ok) closeSheet();
+}
+function closeSheet(){$('#sheet').classList.add('hidden');edit=null;editChar=null;if(loaded)render()}
+$('#sheet').addEventListener('click',e=>{if(e.target.id==='sheet')closeSheet()});
+
+/* ---------- nudges ---------- */
+async function sendNudge(target,kind,btn){
+  if(!players[S.playerId]) return; btn.disabled=true;
+  try{
+    await rpc('nudge_send',{p_code:S.code,p_from:S.playerId,p_to:target,p_kind:kind});
+    notify({action:'event',code:S.code,from:S.playerId,type:'nudge',to:target,kind});
+    toast(NUDGES.find(x=>x.k===kind).i+' Sent.');
+  }catch(e){toast('Couldn’t send: '+e.message,4000)}
+  setTimeout(()=>{btn.disabled=false},4000);
+}
+async function ackNudges(){
+  const p=players[S.playerId], fresh=freshNudges(); if(!p||!fresh.length) return;
+  const latest=fresh.reduce((a,n)=>Math.max(a,new Date(n.created_at).getTime()),0);
+  $('#alerts').innerHTML='';
+  await saveMe({...p,nudgesSeenAt:new Date(latest).toISOString()});
+}
+
+/* ---------- settings: invite, notifications, leave ---------- */
+function inviteText(){return `Join my party on Party Status.\n1. Open ${location.origin+location.pathname}\n2. Add it to your home screen and open it from there\n3. Join with code ${fmtCode(S.code)}`}
+async function copyInvite(){try{await navigator.clipboard.writeText(inviteText());toast('Invite copied.')}catch(e){toast('Couldn’t copy. Press and hold the code instead.',4000)}}
+function pushState(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)) return (isIOS()&&!standalone())?'install':'unsupported';
+  return Notification.permission;
+}
+function openSettings(){
+  $('#sheetInner').innerHTML=`<h2 class="px">SETTINGS</h2>
+    <h3 style="margin-top:0">PARTY CODE</h3>
+    <div class="code">${esc(fmtCode(S.code))}</div>
+    <div class="row"><button class="btn small" onclick="copyInvite()">Copy invite</button></div>
+    <div class="hint">Anyone with this code can see the party. Only share it with your player 2.</div>
+    <h3>NOTIFICATIONS</h3><div id="pushBox"></div>
+    <h3>THIS DEVICE</h3>
+    <div class="row"><button class="btn small warn" id="leaveBtn" onclick="leaveAsk()">Leave party on this device</button></div>
+    <div class="hint">Your character stays in the party. Rejoin with the code and reclaim it.</div>
+    <div class="footer"><span></span><button class="btn ghost" onclick="closeSheet()">Close</button></div>`;
+  paintPush();
+  $('#sheet').classList.remove('hidden');
+}
+async function paintPush(){
+  const box=$('#pushBox'); if(!box) return; const st=pushState();
+  if(st==='install'){box.innerHTML='<p>Add this app to your home screen first (Share, then Add to Home Screen) and open it from there. iPhones only allow notifications from the installed version.</p>';return}
+  if(st==='unsupported'){box.innerHTML='<p>This browser can’t do notifications. On iPhone you need iOS 16.4 or later.</p>';return}
+  if(st==='denied'){box.innerHTML='<p class="bad">Notifications are blocked for this app. Turn them on in Settings > Notifications > Party, then come back.</p>';return}
+  if(!players[S.playerId]){box.innerHTML='<p>Create your character first.</p>';return}
+  let sub=null; try{const reg=await swReady; sub=reg&&await reg.pushManager.getSubscription()}catch(e){}
+  if(st==='granted'&&sub){box.innerHTML='<p class="ok">On for this device.</p><div class="rowbtns"><button class="btn small" id="testBtn" onclick="testPush()">Send me a test</button></div>';return}
+  box.innerHTML='<p>Get a ping when your party checks in, nudges you, or goes overdue.</p><div class="rowbtns"><button class="btn small primary" id="pushBtn" onclick="enablePush()">Turn on notifications</button></div>';
+}
+function keyBytes(b64){b64=b64.replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';return Uint8Array.from(atob(b64),c=>c.charCodeAt(0))}
+async function enablePush(){
+  const btn=$('#pushBtn'); if(btn) btn.disabled=true;
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){toast('Notifications not allowed.');paintPush();return}
+    const reg=await swReady; if(!reg) throw new Error('no service worker');
+    await navigator.serviceWorker.ready;
+    const k=await notify({action:'key'});
+    if(!k||!k.publicKey){toast('The notification server isn’t answering yet.',5000);paintPush();return}
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(k.publicKey)});
+    await rpc('push_save',{p_code:S.code,p_player:S.playerId,p_sub:sub.toJSON()});
+    toast('Notifications on.');
+  }catch(e){toast('Couldn’t turn on notifications: '+e.message,5000)}
+  paintPush();
+}
+async function resyncPush(){
+  try{
+    if(pushState()!=='granted'||!S.playerId) return;
+    const reg=await swReady; const sub=reg&&await reg.pushManager.getSubscription();
+    if(sub) await rpc('push_save',{p_code:S.code,p_player:S.playerId,p_sub:sub.toJSON()});
+  }catch(e){}
+}
+async function testPush(){
+  const b=$('#testBtn'); b.disabled=true;
+  const r=await notify({action:'event',code:S.code,from:S.playerId,type:'test'});
+  toast(!r?'The notification server didn’t answer.':r.sent?'Test sent. It should arrive in a few seconds.':'Server found no working device for you. Turn notifications off and on again.',5000);
+  setTimeout(()=>{b.disabled=false},4000);
+}
+let leaveArmed=false;
+function leaveAsk(){
+  if(!leaveArmed){leaveArmed=true;$('#leaveBtn').textContent='Tap again to confirm';setTimeout(()=>{leaveArmed=false;const b=$('#leaveBtn');if(b)b.textContent='Leave party on this device'},4000);return}
+  leaveNow();
+}
+async function leaveNow(){
+  try{const reg=await swReady;const sub=reg&&await reg.pushManager.getSubscription();
+    if(sub){await rpc('push_remove',{p_endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe().catch(()=>{})}}catch(e){}
+  try{localStorage.removeItem(STORE)}catch(e){}
+  location.hash=''; location.reload();
+}
+boot();
+</script>
+</body>
+</html>
