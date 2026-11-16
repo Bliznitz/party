@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Party Status</title>
+<title>TUNGA</title>
 <meta name="theme-color" content="#1a1c2c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Party">
+<meta name="apple-mobile-web-app-title" content="TUNGA">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
@@ -28,6 +28,18 @@
   header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
   header h1{font-size:13px;color:var(--gold);text-shadow:2px 2px 0 #b13e53}
   header .sub{font-size:17px;color:var(--muted);margin-top:4px}
+  .tagline{font-size:6px;color:var(--muted);margin-top:6px;letter-spacing:.3px}
+  .pxi{width:1.05em;height:1.05em;image-rendering:pixelated;image-rendering:crisp-edges;vertical-align:-0.18em}
+  .avatar .pxi{width:48px;height:48px;vertical-align:0}
+  .pick.av .pxi{width:34px;height:34px;vertical-align:-8px}
+  .nudge .pxi{width:28px;height:28px;vertical-align:-6px}
+  .gear .pxi{width:28px;height:28px;vertical-align:-6px}
+  .lbl .pxi,.sheet h3 .pxi,.alert .px .pxi{width:16px;height:16px;vertical-align:-4px}
+  .hearts svg{width:21px;height:18px;margin-right:2px;shape-rendering:crispEdges}
+  .btn.sos{background:var(--red);color:#fff;margin-left:auto}
+  .btn.sos.armed{background:var(--gold);color:#1a1c2c;animation:blink 0.5s steps(2) infinite}
+  .sosbox{border:3px solid var(--red);background:#5d275d;animation:flash 1s steps(2) infinite}
+  .sosbox .lbl{color:#fff;font-size:9px}
   button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;-webkit-tap-highlight-color:transparent}
   a{color:#73eff7}
   .btn{font-family:'Press Start 2P',monospace;font-size:10px;line-height:1.3;padding:11px 12px;background:var(--panel2);
@@ -50,7 +62,6 @@
   .name{font-size:12px;color:var(--c,#41a6f6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .meta{color:var(--muted);font-size:18px;margin-top:4px}
   .hearts{margin-top:3px;font-size:22px;letter-spacing:1px}
-  .hearts .on{color:var(--red)} .hearts .half{color:#ef7d57} .hearts .off{color:#333c57}
   .seen{text-align:right;font-size:17px;color:var(--muted);flex:none}
   .seen b{display:block;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--gold);margin-bottom:4px}
   .seen.old b{color:#ef7d57}
@@ -89,7 +100,7 @@
   details.log{margin-top:12px}
   details.log summary{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);cursor:pointer;list-style:none}
   details.log summary::-webkit-details-marker{display:none}
-  details.log summary::before{content:"▶ "} details.log[open] summary::before{content:"▼ "}
+  details.log summary::before{content:"> "} details.log[open] summary::before{content:"v "}
   .logrow{display:flex;gap:8px;padding:6px 0;border-bottom:1px dashed #333c57;font-size:18px}
   .logrow .t{color:var(--muted);flex:none;width:92px} .logrow .h{flex:none;color:var(--red)}
 
@@ -138,10 +149,11 @@
 <div class="wrap">
   <header>
     <div>
-      <h1 class="px">PARTY STATUS</h1>
+      <h1 class="px">TUNGA</h1>
+      <div class="tagline px">THE ULTIMATE NEEDY GIRLFRIEND APP</div>
       <div class="sub" id="subtitle">Loading save file<span class="blink">_</span></div>
     </div>
-    <button class="gear" id="gear" aria-label="Settings" onclick="openSettings()" style="display:none">⚙</button>
+    <button class="gear" id="gear" aria-label="Settings" onclick="openSettings()" style="display:none"></button>
   </header>
   <div id="install"></div>
   <div id="alerts"></div>
@@ -165,6 +177,7 @@ const STATUSES=[
   {k:'chatty',t:'Up for a chat',i:'💬'},{k:'field',t:'In the field',i:'🦇'},{k:'fumes',t:'Running on fumes',i:'🪫'},
   {k:'headache',t:'Headache',i:'🤕'},{k:'overload',t:'Overloaded',i:'🌀'},{k:'cosy',t:'Cosy mode',i:'🛋️'},
   {k:'focus',t:'Deep focus',i:'🎯'},{k:'poorly',t:'Poorly',i:'🤒'},{k:'buzzing',t:'Buzzing',i:'✨'},
+  {k:'cold',t:'Too cold',i:'🥶'},{k:'hot',t:'Too hot',i:'🥵'},
 ];
 const AVATARS=['🦊','🦇','🦉','🦔','🐻','🐺','🐸','🐱','🐶','🐉','🧙','🌿','🐑','🍄','🤖','👾'];
 const COLOURS=['#41a6f6','#ff77a8','#a7f070','#ffcd75','#ef7d57','#73eff7','#b48cf2','#38b764'];
@@ -214,9 +227,43 @@ function clock(iso){return new Date(iso).toLocaleTimeString([], {hour:'2-digit',
 function shortDate(iso){const d=new Date(iso);const today=new Date().toDateString()===d.toDateString();
   return (today?'Today ':d.toLocaleDateString([], {weekday:'short'})+' ')+clock(iso)}
 function hp(stats){const v=STATS.map(s=>clamp(stats?.[s.k]));return v.reduce((a,b)=>a+b,0)/v.length}
+/* Every icon is drawn as a 16x16 sprite in the app's 16-colour palette, so nothing looks like a modern emoji. */
+const PAL=['333c57','5d275d','b13e53','e43b44','ef7d57','ffcd75','a7f070','38b764','257179','29366f','3b5dc9','41a6f6','73eff7','f4f4f4','94b0c2','566c86']
+  .map(h=>[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]);
+const pxCache={};
+function pxURL(e){
+  if(e in pxCache) return pxCache[e];
+  let url='';
+  try{
+    const N=16,Q=6,B=N*Q,c=document.createElement('canvas');c.width=c.height=B;
+    const x=c.getContext('2d',{willReadFrequently:true});
+    x.textAlign='center';x.textBaseline='middle';x.fillStyle='#f4f4f4';
+    x.font=Math.round(B*0.8)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    x.fillText(e,B/2,B/2+B*0.05);
+    const d=x.getImageData(0,0,B,B).data,o=document.createElement('canvas');o.width=o.height=N;
+    const ox=o.getContext('2d'),img=ox.createImageData(N,N);let any=false;
+    for(let py=0;py<N;py++)for(let qx=0;qx<N;qx++){
+      let r=0,g=0,b=0,a=0;
+      for(let sy=0;sy<Q;sy++)for(let sx=0;sx<Q;sx++){const i=((py*Q+sy)*B+qx*Q+sx)*4,al=d[i+3]/255;r+=d[i]*al;g+=d[i+1]*al;b+=d[i+2]*al;a+=al}
+      if(a/(Q*Q)<0.5) continue;
+      r/=a;g/=a;b/=a;let best=0,bd=1e12;
+      for(let k=0;k<PAL.length;k++){const q=PAL[k],dd=(r-q[0])**2*0.3+(g-q[1])**2*0.59+(b-q[2])**2*0.11;if(dd<bd){bd=dd;best=k}}
+      const j=(py*N+qx)*4;img.data[j]=PAL[best][0];img.data[j+1]=PAL[best][1];img.data[j+2]=PAL[best][2];img.data[j+3]=255;any=true;
+    }
+    if(any){ox.putImageData(img,0,0);url=o.toDataURL()}
+  }catch(err){}
+  return pxCache[e]=url;
+}
+function px(e){const u=pxURL(e);return u?`<img class="pxi" src="${u}" alt="">`:e}
+const HEART=['.XX.XX.','XXXXXXX','XXXXXXX','.XXXXX.','..XXX..','...X...'];
+function heartSVG(kind){
+  let r='';
+  HEART.forEach((row,y)=>[...row].forEach((ch,x)=>{if(ch==='X')r+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${kind==='on'||(kind==='half'&&x<4)?'#e43b44':'#333c57'}"/>`}));
+  return `<svg viewBox="0 0 7 6" aria-hidden="true">${r}</svg>`;
+}
 function hearts(stats){
   const h=hp(stats)/2; let out='';
-  for(let i=0;i<5;i++){ out+= h>=i+1?'<span class="on">♥</span>': h>=i+0.5?'<span class="half">♥</span>':'<span class="off">♥</span>'; }
+  for(let i=0;i<5;i++) out+=heartSVG(h>=i+1?'on':h>=i+0.5?'half':'off');
   return out;
 }
 function level(p){return Math.floor((p.checkins||0)/7)+1}
@@ -269,7 +316,7 @@ async function boot(){
   start();
 }
 function start(){
-  $('#gear').style.display='';
+  $('#gear').innerHTML=px('⚙️'); $('#gear').style.display='';
   refresh();
   setInterval(()=>{if(document.visibilityState==='visible')refresh()},20000);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
@@ -350,7 +397,7 @@ function locBlock(l){
   if(!l||(l.lat==null&&!l.text)) return '';
   const has=typeof l.lat==='number'&&typeof l.lng==='number';
   const grid=has?osGrid(l.lat,l.lng):'', words=w3w(l.text);
-  let h=`<div class="box loc"><span class="lbl">📍 LAST LOCATION${l.at?' · '+esc(shortDate(l.at)):''}</span>`;
+  let h=`<div class="box loc"><span class="lbl">${px('📍')} LAST LOCATION${l.at?' · '+esc(shortDate(l.at)):''}</span>`;
   if(l.text) h+=`<div>${esc(l.text)}</div>`;
   if(has) h+=`<div class="fine">${l.lat.toFixed(5)}, ${l.lng.toFixed(5)}${l.acc?' · ±'+esc(l.acc)+' m':''}${grid?' · '+grid:''}</div>`;
   h+='<div class="rowbtns">';
@@ -367,30 +414,38 @@ function card(id,p,mine){
   if(p.quest&&p.quest.text){
     const back=p.quest.backBy?new Date(p.quest.backBy):null;
     const overdue=back&&Date.now()>back.getTime();
-    quest=`<div class="box quest ${overdue?'overdue':''}"><span class="lbl">${overdue?'⚠ OVERDUE · NO CHECK-IN':'⚔ CURRENT QUEST'}</span>${esc(p.quest.text)}${back?` <span style="color:var(--muted)">· back by ${esc(shortDate(back))}</span>`:''}`
+    quest=`<div class="box quest ${overdue?'overdue':''}"><span class="lbl">${overdue?px('⚠️')+' OVERDUE · NO CHECK-IN':px('⚔️')+' CURRENT QUEST'}</span>${esc(p.quest.text)}${back?` <span style="color:var(--muted)">· back by ${esc(shortDate(back))}</span>`:''}`
       +(overdue&&!mine?`<div style="margin-top:6px">Try calling. Last known location is below.</div>`:'')
       +(mine?`<div class="rowbtns"><button class="btn small primary" onclick="questDone(this)">I'm safe · quest done</button>${back?`<button class="btn small" onclick="extendQuest(this)">+30 min</button>`:''}</div>`:'')
       +`</div>`;
   }
-  const chips=(p.status||[]).map(k=>STATUSES.find(s=>s.k===k)).filter(Boolean).map(s=>`<span class="chip">${s.i} ${esc(s.t)}</span>`).join('');
+  const chips=(p.status||[]).map(k=>STATUSES.find(s=>s.k===k)).filter(Boolean).map(s=>`<span class="chip">${px(s.i)} ${esc(s.t)}</span>`).join('');
   const bars=STATS.map(s=>{
     const v=clamp(p.stats?.[s.k]);
     const segs=Array.from({length:10},(_,i)=>`<div class="seg ${i<v?'on':''}"></div>`).join('');
-    return `<div class="bar ${v<=3?'low':''}" style="--sc:${s.c}"><span class="ic">${s.icon}</span><span class="lb">${s.label}</span><div class="segs">${segs}</div><span class="val">${v}</span></div>`;
+    return `<div class="bar ${v<=3?'low':''}" style="--sc:${s.c}"><span class="ic">${px(s.icon)}</span><span class="lb">${s.label}</span><div class="segs">${segs}</div><span class="val">${v}</span></div>`;
   }).join('');
   const log=(p.log||[]).slice(0,10).map(l=>`<div class="logrow"><span class="t">${esc(shortDate(l.at))}</span><span class="h">${hearts(l.stats)}</span><span>${esc(l.note||'')}</span></div>`).join('');
+  let sos='';
+  if(p.sos&&p.sos.at){
+    sos=mine
+      ?`<div class="box sosbox"><span class="lbl">${px('🆘')} SOS ACTIVE · SENT ${esc(shortDate(p.sos.at))}</span>Your party has been alerted${p.sos.located?' with your GPS location':''}. In danger? Call 999.
+         <div class="rowbtns"><button class="btn small" onclick="sosClear(this)">I'm OK · cancel SOS</button></div></div>`
+      :`<div class="box sosbox"><span class="lbl">${px('🆘')} EMERGENCY · ${esc(shortDate(p.sos.at))}</span>${esc(p.name||'Player')} pressed the emergency button. Call them now. ${p.sos.located?'GPS location below.':'Last saved location below, if there is one.'}</div>`;
+  }
+  const armed=Date.now()-sosArmed<4000;
   const actions=mine
-    ?`<div class="actions"><button class="btn primary" onclick="openEdit()">Update stats</button><button class="btn ghost" onclick="openChar()">Edit character</button></div>`
-    :`<div class="actions">${NUDGES.map(n=>`<button class="nudge" title="${esc(n.t)}" aria-label="${esc(n.t)}" onclick="sendNudge('${esc(id)}','${n.k}',this)">${n.i}</button>`).join('')}</div>
+    ?`<div class="actions"><button class="btn primary" onclick="openEdit()">Update stats</button><button class="btn ghost" onclick="openChar()">Edit character</button>${p.sos?'':`<button class="btn sos ${armed?'armed':''}" onclick="sosTap()">${armed?'Tap again to send':'SOS'}</button>`}</div>`
+    :`<div class="actions">${NUDGES.map(n=>`<button class="nudge" title="${esc(n.t)}" aria-label="${esc(n.t)}" onclick="sendNudge('${esc(id)}','${n.k}',this)">${px(n.i)}</button>`).join('')}</div>
       <div class="hint">Hug · love · snack · water · rest · request update</div>`;
   return `<section class="card ${stale?'stale':''}" style="--c:${col}">
-    <div class="head"><div class="avatar">${av}</div>
+    <div class="head"><div class="avatar">${px(av)}</div>
       <div class="who"><div class="name px">${esc((p.name||'Player').toUpperCase())}${mine?'<span class="you-tag">YOU</span>':''}</div>
         <div class="meta">LV ${level(p)} ${esc(p.cls||'Adventurer')}</div>
         <div class="hearts">${hearts(p.stats)}</div></div>
       <div class="seen ${stale?'old':''}"><b>${stale?'STALE':'LAST SEEN'}</b>${esc(ago(p.updatedAt))}</div>
     </div>
-    ${quest}${locBlock(p.loc)}
+    ${sos}${quest}${locBlock(p.loc)}
     ${chips?`<div class="chips">${chips}</div>`:''}
     <div class="bars">${bars}</div>
     ${p.note?`<div class="box note"><span class="lbl">STATUS MESSAGE</span>${esc(p.note)}</div>`:''}
@@ -406,10 +461,13 @@ function freshNudges(){
 }
 function renderAlerts(){
   const fresh=freshNudges();
-  if(!fresh.length){$('#alerts').innerHTML='';return}
+  const pend=sosPending?`<div class="alert" style="border-color:var(--red)"><div class="px" style="color:#fff">${px('🆘')} SOS NOT SENT YET</div>
+    <p style="margin-bottom:10px">No connection. Retrying every 15 seconds. <b>In danger? Call 999 now.</b></p>
+    <div class="row"><button class="btn warn" onclick="sendSOS()">Try now</button><button class="btn ghost" onclick="sosPending=false;renderAlerts()">Stop</button></div></div>`:'';
+  if(!fresh.length){$('#alerts').innerHTML=pend;return}
   const rows=fresh.map(n=>{const k=NUDGES.find(x=>x.k===n.kind);if(!k)return'';
-    return `<li>${k.i} <b>${esc(players[n.from_player]?.name||'Someone')}</b> ${esc(k.t)} <span style="color:var(--muted)">· ${esc(ago(n.created_at))}</span></li>`}).join('');
-  $('#alerts').innerHTML=`<div class="alert"><div class="px">! NEW MESSAGE${fresh.length>1?'S':''}</div><ul>${rows}</ul>
+    return `<li>${px(k.i)} <b>${esc(players[n.from_player]?.name||'Someone')}</b> ${esc(k.t)} <span style="color:var(--muted)">· ${esc(ago(n.created_at))}</span></li>`}).join('');
+  $('#alerts').innerHTML=pend+`<div class="alert"><div class="px">! NEW MESSAGE${fresh.length>1?'S':''}</div><ul>${rows}</ul>
     <div class="row"><button class="btn" onclick="ackNudges()">OK</button>${fresh.some(n=>n.kind==='ping')?'<button class="btn primary" onclick="ackNudges();openEdit()">Send update</button>':''}</div></div>`;
 }
 
@@ -429,7 +487,7 @@ function renderWho(){
 function charFields(c){
   return `<div class="field"><label for="cName">Name</label><input type="text" id="cName" maxlength="20" value="${esc(c.name)}" placeholder="e.g. Lari"></div>
     <div class="field"><label for="cCls">Class</label><input type="text" id="cCls" maxlength="24" value="${esc(c.cls)}" placeholder="e.g. Ecologist, Bat Whisperer"></div>
-    <div class="field"><span class="flabel">Avatar</span><div class="pick av">${AVATARS.map(a=>`<button type="button" class="${a===c.avatar?'sel':''}" onclick="pickOne(this,'avatar','${a}')">${a}</button>`).join('')}</div></div>
+    <div class="field"><span class="flabel">Avatar</span><div class="pick av">${AVATARS.map(a=>`<button type="button" class="${a===c.avatar?'sel':''}" onclick="pickOne(this,'avatar','${a}')">${px(a)}</button>`).join('')}</div></div>
     <div class="field"><span class="flabel">Colour</span><div class="pick col">${COLOURS.map(k=>`<button type="button" class="${k===c.colour?'sel':''}" style="background:${k}" aria-label="colour ${k}" onclick="pickOne(this,'colour','${k}')"></button>`).join('')}</div></div>`;
 }
 function pickOne(btn,key,val){
@@ -450,15 +508,47 @@ function tzName(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'
 
 /* ---------- saving ---------- */
 let saving=false;
-async function saveMe(doc,okMsg,event){
+async function saveMe(doc,okMsg,event,quiet){
   if(saving) return false; saving=true;
   try{
     await rpc('player_save',{p_code:S.code,p_id:S.playerId,p_data:doc});
     players[S.playerId]=doc; if(okMsg) toast(okMsg);
     if(event) notify({action:'event',code:S.code,from:S.playerId,type:event});
     return true;
-  }catch(e){toast('Couldn’t save: '+e.message+'. Try again when you have signal.',5000);return false}
+  }catch(e){if(!quiet)toast('Couldn’t save: '+e.message+'. Try again when you have signal.',5000);return false}
   finally{saving=false}
+}
+
+/* ---------- SOS ---------- */
+let sosArmed=0, sosPending=false, sosTimer=null;
+function sosTap(){
+  if(Date.now()-sosArmed>4000){sosArmed=Date.now();render();setTimeout(()=>{if(!busy())render()},4100);return}
+  sosArmed=0; sendSOS();
+}
+async function sendSOS(){
+  clearTimeout(sosTimer);
+  for(let i=0;i<30&&saving;i++) await new Promise(r=>setTimeout(r,100));
+  const p=players[S.playerId]; if(!p) return;
+  const now=new Date().toISOString();
+  const log=[{at:now,stats:p.stats,note:'SOS sent'},...(p.log||[])].slice(0,20);
+  const ok=await saveMe({...p,sos:{at:now},updatedAt:now,log,tz:tzName()},null,'sos',true);
+  if(!ok){sosPending=true;renderAlerts();sosTimer=setTimeout(()=>{if(sosPending)sendSOS()},15000);return}
+  sosPending=false; render(); toast('SOS sent to your party. In danger? Call 999.',8000);
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    for(let i=0;i<30&&saving;i++) await new Promise(r=>setTimeout(r,100));
+    const cur=players[S.playerId]; if(!cur||!cur.sos) return;
+    const at=new Date().toISOString();
+    const loc={text:(cur.loc&&cur.loc.text)||'',lat:+pos.coords.latitude.toFixed(6),lng:+pos.coords.longitude.toFixed(6),acc:Math.round(pos.coords.accuracy),at};
+    if(await saveMe({...cur,loc,sos:{...cur.sos,located:at},updatedAt:at},null,'soslocation',true)){toast('GPS location sent to your party.',5000);if(!busy())render()}
+  },()=>{toast('No GPS fix. Your party has your last saved location only.',7000)},{enableHighAccuracy:true,timeout:20000,maximumAge:30000});
+}
+async function sosClear(btn){
+  const p=players[S.playerId]; if(!p||!p.sos) return; btn.disabled=true;
+  const now=new Date().toISOString();
+  const log=[{at:now,stats:p.stats,note:'SOS cancelled: OK'},...(p.log||[])].slice(0,20);
+  const ok=await saveMe({...p,sos:null,updatedAt:now,log,tz:tzName()},'SOS cancelled. Party told you’re OK.','sosclear');
+  if(ok) render(); else btn.disabled=false;
 }
 
 /* ---------- update stats sheet ---------- */
@@ -470,14 +560,14 @@ function openEdit(){
   const overdue=q.backBy&&Date.now()>new Date(q.backBy).getTime();
   const backVal=q.backBy?new Date(q.backBy).toTimeString().slice(0,5):'';
   $('#sheetInner').innerHTML=`<h2 class="px">UPDATE STATS</h2>
-    ${STATS.map(s=>`<div class="slider" style="--sc:${s.c}"><span class="ic">${s.icon}</span><span class="lb px" style="font-size:8px;color:var(--muted)">${s.label}</span>
+    ${STATS.map(s=>`<div class="slider" style="--sc:${s.c}"><span class="ic">${px(s.icon)}</span><span class="lb px" style="font-size:8px;color:var(--muted)">${s.label}</span>
       <input type="range" min="0" max="10" step="1" aria-label="${s.label}" value="${clamp(p.stats?.[s.k])}" oninput="edit.stats['${s.k}']=+this.value;this.nextElementSibling.textContent=this.value">
       <span class="val" style="text-align:right">${clamp(p.stats?.[s.k])}</span></div>`).join('')}
     <div class="field" style="margin-top:14px"><span class="flabel">Status effects</span>
-      <div class="pick">${STATUSES.map(s=>`<button type="button" class="${edit.status.includes(s.k)?'sel':''}" onclick="toggleStatus(this,'${s.k}')">${s.i} ${esc(s.t)}</button>`).join('')}</div></div>
+      <div class="pick">${STATUSES.map(s=>`<button type="button" class="${edit.status.includes(s.k)?'sel':''}" onclick="toggleStatus(this,'${s.k}')">${px(s.i)} ${esc(s.t)}</button>`).join('')}</div></div>
     <div class="field"><label for="eNote">Status message</label><textarea id="eNote" maxlength="280" placeholder="How's it going?">${esc(p.note||'')}</textarea></div>
 
-    <h3>⚔ QUEST + BACK-BY TIME</h3>
+    <h3>${px('⚔️')} QUEST + BACK-BY TIME</h3>
     ${overdue?'<p class="bad" style="margin-bottom:8px">This quest is overdue. Set a new back-by time or mark it done.</p>':''}
     <div class="field"><label for="eQuest">What you're doing (leave blank for none)</label><input type="text" id="eQuest" maxlength="80" value="${esc(q.text||'')}" placeholder="e.g. Bat survey, Thetford">
       <div class="row" style="margin-top:8px"><span style="color:var(--muted)">Back by</span><input type="time" id="eBack" value="${backVal}" style="max-width:140px" oninput="edit.backDirty=true">
@@ -485,7 +575,7 @@ function openEdit(){
       <div class="hint">Pass this time without checking in and your party gets an overdue alert, repeating every 15 minutes.</div>
       ${q.text?'<div class="rowbtns"><button class="btn small ghost" type="button" onclick="clearQuestFields()">Clear quest</button></div>':''}</div>
 
-    <h3>📍 LOCATION</h3>
+    <h3>${px('📍')} LOCATION</h3>
     <div id="locState"></div>
     <div class="rowbtns" style="margin:8px 0 10px"><button class="btn small" type="button" id="locBtn" onclick="grabLoc()">Use my current location</button>
       <button class="btn small ghost" type="button" onclick="edit.loc={};$('#eLocText').value='';paintLoc()">Clear</button></div>
@@ -543,7 +633,7 @@ async function saveEdit(){
 async function questDone(btn){
   const p=players[S.playerId]; if(!p||!p.quest) return; btn.disabled=true;
   const now=new Date().toISOString();
-  const log=[{at:now,stats:p.stats,note:'✔ Safe. Quest done: '+p.quest.text},...(p.log||[])].slice(0,20);
+  const log=[{at:now,stats:p.stats,note:'Safe. Quest done: '+p.quest.text},...(p.log||[])].slice(0,20);
   const ok=await saveMe({...p,quest:null,updatedAt:now,checkins:(p.checkins||0)+1,log,tz:tzName()},'Quest complete. Party told you’re safe.','safe');
   if(ok) render(); else btn.disabled=false;
 }
@@ -577,7 +667,7 @@ async function sendNudge(target,kind,btn){
   try{
     await rpc('nudge_send',{p_code:S.code,p_from:S.playerId,p_to:target,p_kind:kind});
     notify({action:'event',code:S.code,from:S.playerId,type:'nudge',to:target,kind});
-    toast(NUDGES.find(x=>x.k===kind).i+' Sent.');
+    toast('Sent.');
   }catch(e){toast('Couldn’t send: '+e.message,4000)}
   setTimeout(()=>{btn.disabled=false},4000);
 }
@@ -589,7 +679,7 @@ async function ackNudges(){
 }
 
 /* ---------- settings: invite, notifications, leave ---------- */
-function inviteText(){return `Join my party on Party Status.\n1. Open ${location.origin+location.pathname}\n2. Add it to your home screen and open it from there\n3. Join with code ${fmtCode(S.code)}`}
+function inviteText(){return `Join my party on TUNGA (The Ultimate Needy Girlfriend App).\n1. Open ${location.origin+location.pathname}\n2. Add it to your home screen and open it from there\n3. Join with code ${fmtCode(S.code)}`}
 async function copyInvite(){try{await navigator.clipboard.writeText(inviteText());toast('Invite copied.')}catch(e){toast('Couldn’t copy. Press and hold the code instead.',4000)}}
 function pushState(){
   if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)) return (isIOS()&&!standalone())?'install':'unsupported';
@@ -613,7 +703,7 @@ async function paintPush(){
   const box=$('#pushBox'); if(!box) return; const st=pushState();
   if(st==='install'){box.innerHTML='<p>Add this app to your home screen first (Share, then Add to Home Screen) and open it from there. iPhones only allow notifications from the installed version.</p>';return}
   if(st==='unsupported'){box.innerHTML='<p>This browser can’t do notifications. On iPhone you need iOS 16.4 or later.</p>';return}
-  if(st==='denied'){box.innerHTML='<p class="bad">Notifications are blocked for this app. Turn them on in Settings > Notifications > Party, then come back.</p>';return}
+  if(st==='denied'){box.innerHTML='<p class="bad">Notifications are blocked for this app. Turn them on in Settings > Notifications > TUNGA, then come back.</p>';return}
   if(!players[S.playerId]){box.innerHTML='<p>Create your character first.</p>';return}
   let sub=null; try{const reg=await swReady; sub=reg&&await reg.pushManager.getSubscription()}catch(e){}
   if(st==='granted'&&sub){box.innerHTML='<p class="ok">On for this device.</p><div class="rowbtns"><button class="btn small" id="testBtn" onclick="testPush()">Send me a test</button></div>';return}

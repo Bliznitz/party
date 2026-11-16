@@ -1,4 +1,4 @@
-// Party Status service worker: shows push notifications and tells the open app to refresh.
+// TUNGA service worker: shows push notifications and tells the open app to refresh.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
@@ -8,7 +8,7 @@ self.addEventListener('push', (e) => {
   e.waitUntil((async () => {
     const opts = { body: d.body || '', icon: 'icon-192.png', badge: 'icon-192.png' };
     if (d.tag) { opts.tag = d.tag; opts.renotify = true; }
-    await self.registration.showNotification(d.title || 'Party Status', opts);
+    await self.registration.showNotification(d.title || 'TUNGA', opts);
     const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     open.forEach((c) => c.postMessage({ type: 'refresh' }));
   })());

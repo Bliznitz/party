@@ -1,7 +1,7 @@
 {
-  "name": "Party Status",
-  "short_name": "Party",
-  "description": "Check in on each other, RPG style.",
+  "name": "TUNGA",
+  "short_name": "TUNGA",
+  "description": "The Ultimate Needy Girlfriend App.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
