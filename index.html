@@ -121,9 +121,9 @@
   .sheet h3{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--ink);margin:18px 0 8px}
   .field{margin-bottom:14px}
   .field > label,.flabel{display:block;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);margin-bottom:7px}
-  input[type=text],input[type=time],textarea{width:100%;font:inherit;font-size:21px;color:var(--ink);background:#1a1c2c;border:2px solid var(--line);padding:7px 9px;border-radius:0;-webkit-appearance:none;appearance:none}
+  input[type=text],input[type=time],textarea,select{width:100%;font:inherit;font-size:21px;color:var(--ink);background:#1a1c2c;border:2px solid var(--line);padding:7px 9px;border-radius:0;-webkit-appearance:none;appearance:none}
   textarea{min-height:70px;resize:vertical}
-  input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--gold);outline-offset:1px}
   .slider{display:grid;grid-template-columns:22px 82px 1fr 26px;align-items:center;gap:6px;margin-bottom:9px}
   input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent}
   input[type=range]::-webkit-slider-runnable-track{height:10px;background:#000;border:2px solid var(--line)}
@@ -163,6 +163,7 @@
 <div id="toast"></div>
 
 <script src="config.js"></script>
+<script src="game.js"></script>
 <script>
 const STATS=[
   {k:'energy', label:'ENERGY', icon:'⚡', c:'#ffcd75'},
@@ -185,6 +186,7 @@ const NUDGES=[
   {k:'hug',i:'🫂',t:'sent you a hug'},{k:'love',i:'❤️',t:'sent love'},
   {k:'snack',i:'🍪',t:'says eat something'},{k:'water',i:'💧',t:'says drink some water'},
   {k:'rest',i:'😴',t:'says go and rest'},{k:'ping',i:'📡',t:'wants a status update'},
+  {k:'fight',i:'⚔️',t:'challenges you to a fight',hidden:true},
 ];
 
 const CFG=window.PARTY_CONFIG||{};
@@ -370,6 +372,7 @@ async function refresh(){
   }finally{refreshing=false}
 }
 function busy(){
+  if(window.Arena&&Arena.isOpen()) return true;
   if(!$('#sheet').classList.contains('hidden')) return true;
   const a=document.activeElement; return !!(a&&$('#app').contains(a)&&/^(INPUT|TEXTAREA)$/.test(a.tagName));
 }
@@ -435,13 +438,14 @@ function card(id,p,mine){
   }
   const armed=Date.now()-sosArmed<4000;
   const actions=mine
-    ?`<div class="actions"><button class="btn primary" onclick="openEdit()">Update stats</button><button class="btn ghost" onclick="openChar()">Edit character</button>${p.sos?'':`<button class="btn sos ${armed?'armed':''}" onclick="sosTap()">${armed?'Tap again to send':'SOS'}</button>`}</div>`
-    :`<div class="actions">${NUDGES.map(n=>`<button class="nudge" title="${esc(n.t)}" aria-label="${esc(n.t)}" onclick="sendNudge('${esc(id)}','${n.k}',this)">${px(n.i)}</button>`).join('')}</div>
-      <div class="hint">Hug · love · snack · water · rest · request update</div>`;
+    ?`<div class="actions"><button class="btn primary" onclick="openEdit()">Update stats</button><button class="btn ghost" onclick="openChar()">Edit character</button><button class="btn" onclick="openPractice()">Arena</button>${p.sos?'':`<button class="btn sos ${armed?'armed':''}" onclick="sosTap()">${armed?'Tap again to send':'SOS'}</button>`}</div>`
+    :`<div class="actions">${NUDGES.filter(n=>!n.hidden).map(n=>`<button class="nudge" title="${esc(n.t)}" aria-label="${esc(n.t)}" onclick="sendNudge('${esc(id)}','${n.k}',this)">${px(n.i)}</button>`).join('')}</div>
+      <div class="hint">Hug · love · snack · water · rest · request update</div>
+      <div class="actions"><button class="btn warn" onclick="challenge('${esc(id)}')">${px('⚔️')} Fight ${esc(p.name||'them')}!</button></div>`;
   return `<section class="card ${stale?'stale':''}" style="--c:${col}">
     <div class="head"><div class="avatar">${px(av)}</div>
       <div class="who"><div class="name px">${esc((p.name||'Player').toUpperCase())}${mine?'<span class="you-tag">YOU</span>':''}</div>
-        <div class="meta">LV ${level(p)} ${esc(p.cls||'Adventurer')}</div>
+        <div class="meta">LV ${level(p)} ${esc(p.cls||'Adventurer')}${(p.wins||p.losses)?` · W${p.wins||0} L${p.losses||0}`:''}</div>
         <div class="hearts">${hearts(p.stats)}</div></div>
       <div class="seen ${stale?'old':''}"><b>${stale?'STALE':'LAST SEEN'}</b>${esc(ago(p.updatedAt))}</div>
     </div>
@@ -468,25 +472,28 @@ function renderAlerts(){
   const rows=fresh.map(n=>{const k=NUDGES.find(x=>x.k===n.kind);if(!k)return'';
     return `<li>${px(k.i)} <b>${esc(players[n.from_player]?.name||'Someone')}</b> ${esc(k.t)} <span style="color:var(--muted)">· ${esc(ago(n.created_at))}</span></li>`}).join('');
   $('#alerts').innerHTML=pend+`<div class="alert"><div class="px">! NEW MESSAGE${fresh.length>1?'S':''}</div><ul>${rows}</ul>
-    <div class="row"><button class="btn" onclick="ackNudges()">OK</button>${fresh.some(n=>n.kind==='ping')?'<button class="btn primary" onclick="ackNudges();openEdit()">Send update</button>':''}</div></div>`;
+    <div class="row"><button class="btn" onclick="ackNudges()">OK</button>${fresh.some(n=>n.kind==='ping')?'<button class="btn primary" onclick="ackNudges();openEdit()">Send update</button>':''}${fightFrom(fresh)?`<button class="btn warn" onclick="acceptFight('${esc(fightFrom(fresh))}')">Fight!</button>`:''}</div></div>`;
 }
 
 /* ---------- character creation / reclaim ---------- */
 let draftChar=null, editChar=null;
+let whoNew=false;
 function renderWho(){
   draftChar=draftChar||{name:'',cls:'',avatar:AVATARS[0],colour:COLOURS[0]};
   const existing=Object.entries(players);
-  $('#app').innerHTML=`<section class="card" style="--c:${draftChar.colour}">
-    <h2 class="px">CREATE CHARACTER</h2>${charFields(draftChar)}
-    <div class="actions"><button class="btn primary" id="mkBtn" onclick="createChar()">Start game</button></div></section>
-    ${existing.length?`<details class="log" style="margin:0 0 22px"><summary>Already have a character here? Reclaim it</summary>
-      <p class="hint" style="margin:8px 0">Only for getting your own character back on a new phone.</p>
-      <div class="rowbtns">${existing.map(([id,p])=>`<button class="btn small" onclick="claim('${esc(id)}')">I am ${esc(p.name||'Player')}</button>`).join('')}</div></details>`:''}
-    <div class="hint">Party code: ${esc(fmtCode(S.code))} · <a href="#" onclick="leaveNow();return false">use a different code</a></div>`;
+  const form=`${charFields(draftChar)}<div class="actions"><button class="btn primary" id="mkBtn" onclick="createChar()">Start game</button></div>`;
+  $('#app').innerHTML=(existing.length
+    ?`<section class="card"><h2 class="px">WHO ARE YOU?</h2>
+        <p style="margin-bottom:12px">Tap your character to carry on as them.</p>
+        <div class="rowbtns">${existing.map(([id,p])=>`<button class="btn primary" onclick="claim('${esc(id)}')">I am ${esc(p.name||'Player')}</button>`).join('')}</div></section>
+      <details class="log" style="margin:0 0 22px" ${whoNew?'open':''} ontoggle="whoNew=this.open"><summary>Someone new? Create a character</summary>
+        <section class="card" style="--c:${draftChar.colour};margin-top:12px">${form}</section></details>`
+    :`<section class="card" style="--c:${draftChar.colour}"><h2 class="px">CREATE CHARACTER</h2>${form}</section>`)
+    +`<div class="hint">Party code: ${esc(fmtCode(S.code))} · <a href="#" onclick="leaveNow();return false">use a different code</a></div>`;
 }
 function charFields(c){
-  return `<div class="field"><label for="cName">Name</label><input type="text" id="cName" maxlength="20" value="${esc(c.name)}" placeholder="e.g. Lari"></div>
-    <div class="field"><label for="cCls">Class</label><input type="text" id="cCls" maxlength="24" value="${esc(c.cls)}" placeholder="e.g. Ecologist, Bat Whisperer"></div>
+  return `<div class="field"><label for="cName">Name</label><input type="text" id="cName" maxlength="20" value="${esc(c.name)}" placeholder="e.g. Lari" oninput="(editChar||draftChar).name=this.value"></div>
+    <div class="field"><label for="cCls">Class (your fighter in the arena)</label><select id="cCls" onchange="(editChar||draftChar).cls=this.value">${Object.entries(Arena.CLASSES).map(([k,v])=>`<option value="${v.name}" ${Arena.classKey(c.cls)===k?'selected':''}>${v.name} · ${v.spName.toLowerCase()}</option>`).join('')}</select></div>
     <div class="field"><span class="flabel">Avatar</span><div class="pick av">${AVATARS.map(a=>`<button type="button" class="${a===c.avatar?'sel':''}" onclick="pickOne(this,'avatar','${a}')">${px(a)}</button>`).join('')}</div></div>
     <div class="field"><span class="flabel">Colour</span><div class="pick col">${COLOURS.map(k=>`<button type="button" class="${k===c.colour?'sel':''}" style="background:${k}" aria-label="colour ${k}" onclick="pickOne(this,'colour','${k}')"></button>`).join('')}</div></div>`;
 }
@@ -498,10 +505,10 @@ function claim(id){ if(!players[id]) return; S.playerId=id; saveStore(); render(
 async function createChar(){
   const name=$('#cName').value.trim(); if(!name){toast('Your character needs a name.');return}
   const id=uuid(), now=new Date().toISOString();
-  const doc={name,cls:$('#cCls').value.trim()||'Adventurer',avatar:draftChar.avatar,colour:draftChar.colour,
+  const doc={name,cls:$('#cCls').value||'Wizard',avatar:draftChar.avatar,colour:draftChar.colour,
     stats:Object.fromEntries(STATS.map(s=>[s.k,7])),status:[],note:'',quest:null,loc:null,updatedAt:now,checkins:0,log:[],nudgesSeenAt:now,tz:tzName()};
   $('#mkBtn').disabled=true;
-  try{await rpc('player_save',{p_code:S.code,p_id:id,p_data:doc});S.playerId=id;saveStore();players[id]=doc;draftChar=null;document.activeElement&&document.activeElement.blur();render();toast('Character created. Welcome, '+name+'.')}
+  try{await rpc('player_save',{p_code:S.code,p_id:id,p_data:doc});S.playerId=id;saveStore();players[id]=doc;draftChar=null;whoNew=false;document.activeElement&&document.activeElement.blur();render();toast('Character created. Welcome, '+name+'.')}
   catch(e){toast('Couldn’t save: '+e.message,5000);$('#mkBtn').disabled=false}
 }
 function tzName(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){return ''}}
@@ -655,7 +662,7 @@ function openChar(){
 async function saveChar(){
   const name=$('#cName').value.trim(); if(!name){toast('Name required.');return}
   const p=players[S.playerId];
-  const ok=await saveMe({...p,name,cls:$('#cCls').value.trim()||'Adventurer',avatar:editChar.avatar,colour:editChar.colour},'Character updated.');
+  const ok=await saveMe({...p,name,cls:$('#cCls').value||'Wizard',avatar:editChar.avatar,colour:editChar.colour},'Character updated.');
   if(ok) closeSheet();
 }
 function closeSheet(){$('#sheet').classList.add('hidden');edit=null;editChar=null;if(loaded)render()}
@@ -678,6 +685,33 @@ async function ackNudges(){
   await saveMe({...p,nudgesSeenAt:new Date(latest).toISOString()});
 }
 
+/* ---------- arena ---------- */
+function fighterInfo(id){const p=players[id]||{};return {id,name:p.name||'Player',cls:p.cls,colour:p.colour,stats:p.stats||{}}}
+function fightFrom(fresh){const n=fresh.find(n=>n.kind==='fight'&&players[n.from_player]&&Date.now()-new Date(n.created_at).getTime()<15*60e3);return n?n.from_player:''}
+function openPractice(){
+  const other=Object.keys(players).find(id=>id!==S.playerId);
+  const opp=other?fighterInfo(other):{id:'cpu',name:'Dummy',cls:'Knight',colour:'#94b0c2',stats:{energy:5,food:5,water:5,stamina:5,mood:5,social:5}};
+  Arena.open({mode:'cpu',me:fighterInfo(S.playerId),opp,onClose:()=>{if(loaded)render()}});
+}
+function openFight(oppId){
+  const ids=[S.playerId,oppId].sort();
+  Arena.open({mode:'net',me:fighterInfo(S.playerId),opp:fighterInfo(oppId),net:{url:BASE,key:KEY,room:'tunga-'+S.code+'-'+ids[0].slice(0,8)+'-'+ids[1].slice(0,8)},
+    onResult:fightResult,onClose:()=>{if(loaded){refresh();render()}}});
+}
+function challenge(id){
+  if(!players[S.playerId]||!players[id]) return;
+  openFight(id);                                  // open straight away so sound is allowed to start
+  rpc('nudge_send',{p_code:S.code,p_from:S.playerId,p_to:id,p_kind:'fight'})
+    .then(()=>notify({action:'event',code:S.code,from:S.playerId,type:'nudge',to:id,kind:'fight'}))
+    .catch(e=>toast('Couldn’t send the challenge: '+e.message,5000));
+}
+function acceptFight(id){openFight(id);ackNudges()}
+async function fightResult(won){
+  for(let i=0;i<30&&saving;i++) await new Promise(r=>setTimeout(r,100));
+  const p=players[S.playerId]; if(!p) return;
+  await saveMe({...p,wins:(p.wins||0)+(won?1:0),losses:(p.losses||0)+(won?0:1)},null,null,true);
+}
+
 /* ---------- settings: invite, notifications, leave ---------- */
 function inviteText(){return `Join my party on TUNGA (The Ultimate Needy Girlfriend App).\n1. Open ${location.origin+location.pathname}\n2. Add it to your home screen and open it from there\n3. Join with code ${fmtCode(S.code)}`}
 async function copyInvite(){try{await navigator.clipboard.writeText(inviteText());toast('Invite copied.')}catch(e){toast('Couldn’t copy. Press and hold the code instead.',4000)}}
@@ -691,13 +725,32 @@ function openSettings(){
     <div class="code">${esc(fmtCode(S.code))}</div>
     <div class="row"><button class="btn small" onclick="copyInvite()">Copy invite</button></div>
     <div class="hint">Anyone with this code can see the party. Only share it with your player 2.</div>
+    <h3>PLAYERS</h3><div id="playersBox"></div>
+    <div class="hint">Removing a player deletes their character and history for good.</div>
     <h3>NOTIFICATIONS</h3><div id="pushBox"></div>
     <h3>THIS DEVICE</h3>
     <div class="row"><button class="btn small warn" id="leaveBtn" onclick="leaveAsk()">Leave party on this device</button></div>
     <div class="hint">Your character stays in the party. Rejoin with the code and reclaim it.</div>
     <div class="footer"><span></span><button class="btn ghost" onclick="closeSheet()">Close</button></div>`;
-  paintPush();
+  paintPlayers(); paintPush();
   $('#sheet').classList.remove('hidden');
+}
+let removeArmed='';
+function paintPlayers(){
+  const box=$('#playersBox'); if(!box) return;
+  box.innerHTML=Object.entries(players).map(([id,p])=>`<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px dashed #333c57">
+    <span>${px(AVATARS.includes(p.avatar)?p.avatar:'👾')} ${esc(p.name||'Player')}${id===S.playerId?' <span style="color:var(--muted)">(you)</span>':''} <span style="color:var(--muted)">· ${esc(ago(p.updatedAt))}</span></span>
+    <button class="btn small ${removeArmed===id?'warn':'ghost'}" onclick="removePlayer('${esc(id)}')">${removeArmed===id?'Tap again to remove':'Remove'}</button></div>`).join('')||'<p>No players yet.</p>';
+}
+async function removePlayer(id){
+  if(removeArmed!==id){removeArmed=id;paintPlayers();setTimeout(()=>{if(removeArmed===id){removeArmed='';paintPlayers()}},4000);return}
+  removeArmed='';
+  try{
+    await rpc('player_remove',{p_code:S.code,p_id:id});
+    const name=(players[id]&&players[id].name)||'Player'; delete players[id];
+    if(id===S.playerId){S.playerId=null;saveStore();closeSheet();toast('Your character was removed.');return}
+    paintPlayers(); toast(name+' removed.');
+  }catch(e){toast(/player_remove/.test(e.message)?'The server needs its small update first (the SQL paste).':'Couldn’t remove: '+e.message,6000);paintPlayers()}
 }
 async function paintPush(){
   const box=$('#pushBox'); if(!box) return; const st=pushState();
