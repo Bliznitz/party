@@ -65,6 +65,7 @@
   .seen{text-align:right;font-size:17px;color:var(--muted);flex:none}
   .seen b{display:block;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--gold);margin-bottom:4px}
   .seen.old b{color:#ef7d57}
+  .crownline{font-size:7px;color:var(--gold);margin-top:4px;line-height:1.4}
   .you-tag{font-family:'Press Start 2P',monospace;font-size:7px;background:var(--c);color:#1a1c2c;padding:3px 4px;margin-left:6px;vertical-align:middle}
 
   .box{margin-top:12px;padding:8px 10px;background:#1a1c2c;font-size:19px;word-wrap:break-word}
@@ -179,6 +180,7 @@ const STATUSES=[
   {k:'headache',t:'Headache',i:'🤕'},{k:'overload',t:'Overloaded',i:'🌀'},{k:'cosy',t:'Cosy mode',i:'🛋️'},
   {k:'focus',t:'Deep focus',i:'🎯'},{k:'poorly',t:'Poorly',i:'🤒'},{k:'buzzing',t:'Buzzing',i:'✨'},
   {k:'cold',t:'Too cold',i:'🥶'},{k:'hot',t:'Too hot',i:'🥵'},
+  {k:'sad',t:'Feeling sad',i:'😢'},{k:'irritable',t:'Irritable',i:'😠'},{k:'content',t:'Content',i:'😌'},
 ];
 const AVATARS=['🦊','🦇','🦉','🦔','🐻','🐺','🐸','🐱','🐶','🐉','🧙','🌿','🐑','🍄','🤖','👾'];
 const COLOURS=['#41a6f6','#ff77a8','#a7f070','#ffcd75','#ef7d57','#73eff7','#b48cf2','#38b764'];
@@ -187,6 +189,8 @@ const NUDGES=[
   {k:'snack',i:'🍪',t:'says eat something'},{k:'water',i:'💧',t:'says drink some water'},
   {k:'rest',i:'😴',t:'says go and rest'},{k:'ping',i:'📡',t:'wants a status update'},
   {k:'fight',i:'⚔️',t:'challenges you to a fight',hidden:true},
+  {k:'ready',i:'⚔️',t:'is ready to fight! Tap Fight to join',hidden:true},
+  {k:'crown',i:'👑',t:'won 15 fights and wears the crown for a week. Bow down, peasant!',hidden:true},
 ];
 
 const CFG=window.PARTY_CONFIG||{};
@@ -207,9 +211,10 @@ const cleanCode=c=>String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 /* ---------- server calls ---------- */
 function hdrs(forFunction){const h={'Content-Type':'application/json',apikey:KEY};if(forFunction||KEY.startsWith('eyJ'))h.Authorization='Bearer '+KEY;return h}
 async function rpc(name,args){
-  const r=await fetch(BASE+'/rest/v1/rpc/'+name,{method:'POST',headers:hdrs(false),body:JSON.stringify(args||{})});
-  const text=await r.text();
-  if(!r.ok){let m='';try{m=JSON.parse(text).message}catch(e){} throw new Error(m||('Server error '+r.status))}
+  let r,text;
+  try{r=await fetch(BASE+'/rest/v1/rpc/'+name,{method:'POST',headers:hdrs(false),body:JSON.stringify(args||{})});text=await r.text()}
+  catch(e){const err=new Error('No connection');err.offline=true;throw err}
+  if(!r.ok){let m='';try{m=JSON.parse(text).message}catch(e){} const err=new Error(m||('Server error '+r.status)); if(r.status>=500||r.status===0) err.offline=true; throw err}
   return text?JSON.parse(text):null;
 }
 async function notify(body){
@@ -321,6 +326,7 @@ function start(){
   $('#gear').innerHTML=px('⚙️'); $('#gear').style.display='';
   refresh();
   setInterval(()=>{if(document.visibilityState==='visible')refresh()},20000);
+  window.addEventListener('online',()=>refresh());
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
   resyncPush();
 }
@@ -360,11 +366,14 @@ let refreshing=false;
 async function refresh(){
   if(refreshing||!S.code) return; refreshing=true;
   try{
+    await flushOutbox();
     const d=await rpc('party_get',{p_code:S.code});
     if(!d){gone=true;$('#subtitle').textContent='Party not found';
       showMsg('PARTY NOT FOUND','This party no longer exists.<div class="actions" style="justify-content:center"><button class="btn" onclick="leaveNow()">Start again</button></div>');return}
     const next={}; (d.players||[]).forEach(p=>{next[p.id]=p.data||{}});
+    const ob=getOutbox(); if(ob&&ob.code===S.code&&next[ob.id]) next[ob.id]=ob.doc;
     players=next; nudges=d.nudges||[]; loaded=true;
+    syncTally();
     if(!busy()) render();
   }catch(e){
     if(!loaded){$('#subtitle').textContent='Offline';showMsg('NO SIGNAL','Can’t reach the server. It will retry when you’re back online.')}
@@ -444,8 +453,9 @@ function card(id,p,mine){
       <div class="actions"><button class="btn warn" onclick="challenge('${esc(id)}')">${px('⚔️')} Fight ${esc(p.name||'them')}!</button></div>`;
   return `<section class="card ${stale?'stale':''}" style="--c:${col}">
     <div class="head"><div class="avatar">${px(av)}</div>
-      <div class="who"><div class="name px">${esc((p.name||'Player').toUpperCase())}${mine?'<span class="you-tag">YOU</span>':''}</div>
-        <div class="meta">LV ${level(p)} ${esc(p.cls||'Adventurer')}${(p.wins||p.losses)?` · W${p.wins||0} L${p.losses||0}`:''}</div>
+      <div class="who"><div class="name px">${crownActive(p)?px('👑')+' ':''}${esc((p.name||'Player').toUpperCase())}${mine?'<span class="you-tag">YOU</span>':''}</div>
+        ${crownActive(p)?`<div class="crownline px">${esc(royalTitle(p).toUpperCase())} · until ${esc(new Date(p.crown.until).toLocaleDateString([], {weekday:'short'}))}</div>`:''}
+        <div class="meta">LV ${level(p)} ${esc(shownClass(id,p))}${(p.wins||p.losses)?` · W${p.wins||0} L${p.losses||0}`:''}${(p.wins||p.losses||p.tw)?` · ${p.tw||0}/${CROWN_AT} to the crown`:''}</div>
         <div class="hearts">${hearts(p.stats)}</div></div>
       <div class="seen ${stale?'old':''}"><b>${stale?'STALE':'LAST SEEN'}</b>${esc(ago(p.updatedAt))}</div>
     </div>
@@ -468,10 +478,11 @@ function renderAlerts(){
   const pend=sosPending?`<div class="alert" style="border-color:var(--red)"><div class="px" style="color:#fff">${px('🆘')} SOS NOT SENT YET</div>
     <p style="margin-bottom:10px">No connection. Retrying every 15 seconds. <b>In danger? Call 999 now.</b></p>
     <div class="row"><button class="btn warn" onclick="sendSOS()">Try now</button><button class="btn ghost" onclick="sosPending=false;renderAlerts()">Stop</button></div></div>`:'';
-  if(!fresh.length){$('#alerts').innerHTML=pend;return}
+  const ob=getOutbox(), wait=ob&&ob.code===S.code?`<div class="banner">${px('📶')} <b>A check-in is saved on this phone</b>, waiting for signal. It sends automatically when you're back online.${ob.doc&&ob.doc.quest&&ob.doc.quest.backBy?' <b>Your back-by timer has not started yet.</b>':''} <button class="btn small" onclick="refresh()">Try now</button></div>`:'';
+  if(!fresh.length){$('#alerts').innerHTML=wait+pend;return}
   const rows=fresh.map(n=>{const k=NUDGES.find(x=>x.k===n.kind);if(!k)return'';
     return `<li>${px(k.i)} <b>${esc(players[n.from_player]?.name||'Someone')}</b> ${esc(k.t)} <span style="color:var(--muted)">· ${esc(ago(n.created_at))}</span></li>`}).join('');
-  $('#alerts').innerHTML=pend+`<div class="alert"><div class="px">! NEW MESSAGE${fresh.length>1?'S':''}</div><ul>${rows}</ul>
+  $('#alerts').innerHTML=wait+pend+`<div class="alert"><div class="px">! NEW MESSAGE${fresh.length>1?'S':''}</div><ul>${rows}</ul>
     <div class="row"><button class="btn" onclick="ackNudges()">OK</button>${fresh.some(n=>n.kind==='ping')?'<button class="btn primary" onclick="ackNudges();openEdit()">Send update</button>':''}${fightFrom(fresh)?`<button class="btn warn" onclick="acceptFight('${esc(fightFrom(fresh))}')">Fight!</button>`:''}</div></div>`;
 }
 
@@ -479,7 +490,7 @@ function renderAlerts(){
 let draftChar=null, editChar=null;
 let whoNew=false;
 function renderWho(){
-  draftChar=draftChar||{name:'',cls:'',avatar:AVATARS[0],colour:COLOURS[0]};
+  draftChar=draftChar||{name:'',cls:'',avatar:AVATARS[0],colour:COLOURS[0],royal:'Ruler'};
   const existing=Object.entries(players);
   const form=`${charFields(draftChar)}<div class="actions"><button class="btn primary" id="mkBtn" onclick="createChar()">Start game</button></div>`;
   $('#app').innerHTML=(existing.length
@@ -494,6 +505,7 @@ function renderWho(){
 function charFields(c){
   return `<div class="field"><label for="cName">Name</label><input type="text" id="cName" maxlength="20" value="${esc(c.name)}" placeholder="e.g. Lari" oninput="(editChar||draftChar).name=this.value"></div>
     <div class="field"><label for="cCls">Class (your fighter in the arena)</label><select id="cCls" onchange="(editChar||draftChar).cls=this.value">${Object.entries(Arena.CLASSES).map(([k,v])=>`<option value="${v.name}" ${Arena.classKey(c.cls)===k?'selected':''}>${v.name} · ${v.spName.toLowerCase()}</option>`).join('')}</select></div>
+    <div class="field"><label for="cRoyal">Title when you win the crown</label><select id="cRoyal" onchange="(editChar||draftChar).royal=this.value">${['Queen','King','Ruler'].map(r=>`<option ${(c.royal||'Ruler')===r?'selected':''}>${r}</option>`).join('')}</select></div>
     <div class="field"><span class="flabel">Avatar</span><div class="pick av">${AVATARS.map(a=>`<button type="button" class="${a===c.avatar?'sel':''}" onclick="pickOne(this,'avatar','${a}')">${px(a)}</button>`).join('')}</div></div>
     <div class="field"><span class="flabel">Colour</span><div class="pick col">${COLOURS.map(k=>`<button type="button" class="${k===c.colour?'sel':''}" style="background:${k}" aria-label="colour ${k}" onclick="pickOne(this,'colour','${k}')"></button>`).join('')}</div></div>`;
 }
@@ -505,7 +517,7 @@ function claim(id){ if(!players[id]) return; S.playerId=id; saveStore(); render(
 async function createChar(){
   const name=$('#cName').value.trim(); if(!name){toast('Your character needs a name.');return}
   const id=uuid(), now=new Date().toISOString();
-  const doc={name,cls:$('#cCls').value||'Wizard',avatar:draftChar.avatar,colour:draftChar.colour,
+  const doc={name,cls:$('#cCls').value||'Wizard',royal:$('#cRoyal').value||'Ruler',avatar:draftChar.avatar,colour:draftChar.colour,
     stats:Object.fromEntries(STATS.map(s=>[s.k,7])),status:[],note:'',quest:null,loc:null,updatedAt:now,checkins:0,log:[],nudgesSeenAt:now,tz:tzName()};
   $('#mkBtn').disabled=true;
   try{await rpc('player_save',{p_code:S.code,p_id:id,p_data:doc});S.playerId=id;saveStore();players[id]=doc;draftChar=null;whoNew=false;document.activeElement&&document.activeElement.blur();render();toast('Character created. Welcome, '+name+'.')}
@@ -513,17 +525,46 @@ async function createChar(){
 }
 function tzName(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){return ''}}
 
-/* ---------- saving ---------- */
-let saving=false;
+/* ---------- saving (with an outbox for when there is no signal) ---------- */
+let saving=false, flushing=false;
+const OUTBOX='tunga-outbox-v1';
+function getOutbox(){try{return JSON.parse(localStorage.getItem(OUTBOX)||'null')}catch(e){return null}}
+function setOutbox(v){try{v?localStorage.setItem(OUTBOX,JSON.stringify(v)):localStorage.removeItem(OUTBOX)}catch(e){}}
 async function saveMe(doc,okMsg,event,quiet){
   if(saving) return false; saving=true;
   try{
     await rpc('player_save',{p_code:S.code,p_id:S.playerId,p_data:doc});
     players[S.playerId]=doc; if(okMsg) toast(okMsg);
-    if(event) notify({action:'event',code:S.code,from:S.playerId,type:event});
+    const ob=getOutbox(), events=ob&&ob.code===S.code&&ob.id===S.playerId?ob.events||[]:[];
+    if(ob){setOutbox(null);renderAlerts()}
+    [...new Set([...events,...(event?[event]:[])])].forEach(ev=>notify({action:'event',code:S.code,from:S.playerId,type:ev}));
     return true;
-  }catch(e){if(!quiet)toast('Couldn’t save: '+e.message+'. Try again when you have signal.',5000);return false}
+  }catch(e){
+    if(e.offline&&event!=='sos'&&event!=='soslocation'){
+      const ob=getOutbox(), events=ob&&ob.code===S.code&&ob.id===S.playerId?ob.events||[]:[];
+      if(event&&!events.includes(event)) events.push(event);
+      setOutbox({code:S.code,id:S.playerId,doc,events:events.slice(-4)});
+      players[S.playerId]=doc;
+      if(!quiet) toast('No signal. Saved on this phone and it will send by itself when you’re back in signal.'+(doc.quest&&doc.quest.backBy?' Your back-by timer won’t start until then.':''),8000);
+      renderAlerts(); return true;
+    }
+    if(!quiet)toast('Couldn’t save: '+e.message+'. Try again when you have signal.',5000);return false
+  }
   finally{saving=false}
+}
+async function flushOutbox(){
+  const ob=getOutbox(); if(!ob||flushing||saving) return;
+  if(ob.code!==S.code||ob.id!==S.playerId){setOutbox(null);return}
+  flushing=true;
+  try{
+    await rpc('player_save',{p_code:ob.code,p_id:ob.id,p_data:ob.doc});
+    const cur=getOutbox();
+    if(cur&&JSON.stringify(cur.doc)===JSON.stringify(ob.doc)) setOutbox(null);
+    else if(cur){cur.events=(cur.events||[]).filter(e=>!(ob.events||[]).includes(e));setOutbox(cur)}
+    (ob.events||[]).forEach(ev=>notify({action:'event',code:ob.code,from:ob.id,type:ev}));
+    toast('Back in signal. Your saved check-in has been sent.',5000); renderAlerts();
+  }catch(e){if(!e.offline){setOutbox(null);toast('A saved check-in couldn’t be sent: '+e.message,6000);renderAlerts()}}
+  finally{flushing=false}
 }
 
 /* ---------- SOS ---------- */
@@ -654,7 +695,7 @@ async function extendQuest(btn){
 
 /* ---------- edit character ---------- */
 function openChar(){
-  const p=players[S.playerId]; editChar={name:p.name,cls:p.cls,avatar:p.avatar,colour:p.colour};
+  const p=players[S.playerId]; editChar={name:p.name,cls:p.cls,royal:p.royal,avatar:p.avatar,colour:p.colour};
   $('#sheetInner').innerHTML=`<h2 class="px">EDIT CHARACTER</h2>${charFields(editChar)}
     <div class="footer"><button class="btn ghost" onclick="closeSheet()">Cancel</button><button class="btn primary" onclick="saveChar()">Save</button></div>`;
   $('#sheet').classList.remove('hidden');
@@ -662,7 +703,7 @@ function openChar(){
 async function saveChar(){
   const name=$('#cName').value.trim(); if(!name){toast('Name required.');return}
   const p=players[S.playerId];
-  const ok=await saveMe({...p,name,cls:$('#cCls').value||'Wizard',avatar:editChar.avatar,colour:editChar.colour},'Character updated.');
+  const ok=await saveMe({...p,name,cls:$('#cCls').value||'Wizard',royal:$('#cRoyal').value||'Ruler',avatar:editChar.avatar,colour:editChar.colour},'Character updated.');
   if(ok) closeSheet();
 }
 function closeSheet(){$('#sheet').classList.add('hidden');edit=null;editChar=null;if(loaded)render()}
@@ -686,8 +727,20 @@ async function ackNudges(){
 }
 
 /* ---------- arena ---------- */
-function fighterInfo(id){const p=players[id]||{};return {id,name:p.name||'Player',cls:p.cls,colour:p.colour,stats:p.stats||{}}}
-function fightFrom(fresh){const n=fresh.find(n=>n.kind==='fight'&&players[n.from_player]&&Date.now()-new Date(n.created_at).getTime()<15*60e3);return n?n.from_player:''}
+const CROWN_AT=15;
+function crownActive(p){return !!(p&&p.crown&&p.crown.until&&new Date(p.crown.until).getTime()>Date.now())}
+function ruler(){let best=null;Object.entries(players).forEach(([id,p])=>{if(crownActive(p)&&(!best||p.crown.at>best[1].crown.at))best=[id,p]});return best}
+function royalTitle(p){const r=['Queen','King'].includes(p.royal)?p.royal:'Ruler';return r+' of the Arena'}
+function shownClass(id,p){const r=ruler();return r&&r[0]!==id?'Peasant':(p.cls||'Adventurer')}
+let lastSync='';
+function syncTally(){
+  const me=players[S.playerId]; if(!me||saving) return;
+  let latest='';Object.entries(players).forEach(([id,p])=>{if(id!==S.playerId&&p.crown&&p.crown.at>latest)latest=p.crown.at});
+  if(latest&&latest>(me.tallyResetAt||'')&&latest!==lastSync){lastSync=latest;saveMe({...me,tw:0,tallyResetAt:latest},null,null,true)}
+}
+function fighterInfo(id){const p=players[id]||{};return {id,name:p.name||'Player',cls:p.cls,colour:p.colour,stats:p.stats||{},crown:crownActive(p)}}
+const FIGHT_KINDS=['fight','ready'];
+function fightFrom(fresh){const n=fresh.find(n=>FIGHT_KINDS.includes(n.kind)&&players[n.from_player]&&Date.now()-new Date(n.created_at).getTime()<10*60e3);return n?n.from_player:''}
 function openPractice(){
   const other=Object.keys(players).find(id=>id!==S.playerId);
   const opp=other?fighterInfo(other):{id:'cpu',name:'Dummy',cls:'Knight',colour:'#94b0c2',stats:{energy:5,food:5,water:5,stamina:5,mood:5,social:5}};
@@ -696,20 +749,38 @@ function openPractice(){
 function openFight(oppId){
   const ids=[S.playerId,oppId].sort();
   Arena.open({mode:'net',me:fighterInfo(S.playerId),opp:fighterInfo(oppId),net:{url:BASE,key:KEY,room:'tunga-'+S.code+'-'+ids[0].slice(0,8)+'-'+ids[1].slice(0,8)},
-    onResult:fightResult,onClose:()=>{if(loaded){refresh();render()}}});
+    onResult:(won)=>fightResult(won,oppId),onClose:()=>{if(loaded){refresh();render()}}});
 }
+/* Challenge, or answer a challenge. Either way the other phone gets a notification, at most once a minute. */
 function challenge(id){
   if(!players[S.playerId]||!players[id]) return;
   openFight(id);                                  // open straight away so sound is allowed to start
-  rpc('nudge_send',{p_code:S.code,p_from:S.playerId,p_to:id,p_kind:'fight'})
-    .then(()=>notify({action:'event',code:S.code,from:S.playerId,type:'nudge',to:id,kind:'fight'}))
+  const now=Date.now(), age=n=>now-new Date(n.created_at).getTime();
+  const seen=new Date(players[id].nudgesSeenAt||0).getTime();     // don't re-ping a challenge they haven't seen yet
+  const mineRecent=nudges.find(n=>n.from_player===S.playerId&&n.to_player===id&&FIGHT_KINDS.includes(n.kind)&&age(n)<10*60e3&&new Date(n.created_at).getTime()>seen);
+  const theirs=nudges.find(n=>n.from_player===id&&n.to_player===S.playerId&&FIGHT_KINDS.includes(n.kind)&&age(n)<10*60e3);
+  if(mineRecent) return;
+  const kind=theirs?'ready':'fight';
+  rpc('nudge_send',{p_code:S.code,p_from:S.playerId,p_to:id,p_kind:kind})
+    .then(()=>{nudges.unshift({from_player:S.playerId,to_player:id,kind,created_at:new Date().toISOString()});notify({action:'event',code:S.code,from:S.playerId,type:'nudge',to:id,kind})})
     .catch(e=>toast('Couldn’t send the challenge: '+e.message,5000));
 }
-function acceptFight(id){openFight(id);ackNudges()}
-async function fightResult(won){
-  for(let i=0;i<30&&saving;i++) await new Promise(r=>setTimeout(r,100));
-  const p=players[S.playerId]; if(!p) return;
-  await saveMe({...p,wins:(p.wins||0)+(won?1:0),losses:(p.losses||0)+(won?0:1)},null,null,true);
+function acceptFight(id){challenge(id);ackNudges()}
+function fightResult(won,oppId){
+  const p=players[S.playerId]; if(!p) return '';
+  const now=new Date(), doc={...p,wins:(p.wins||0)+(won?1:0),losses:(p.losses||0)+(won?0:1),tw:(p.tw||0)+(won?1:0)};
+  const opp=players[oppId]||{}, oppTw=(opp.tw||0)+(won?0:1);
+  let note=`First to ${CROWN_AT}: you ${doc.tw}, ${opp.name||'them'} ${Math.min(oppTw,CROWN_AT)}`, crowned=false;
+  if(won&&doc.tw>=CROWN_AT){crowned=true;doc.crown={at:now.toISOString(),until:new Date(now.getTime()+7*864e5).toISOString()};doc.tw=0;doc.tallyResetAt=doc.crown.at;
+    note=`That's ${CROWN_AT}! You're ${royalTitle(doc)} for a week.`}
+  (async()=>{
+    for(let i=0;i<30&&saving;i++) await new Promise(r=>setTimeout(r,100));
+    await saveMe(doc,null,null,true);
+    if(crowned) Object.keys(players).filter(id=>id!==S.playerId).forEach(id=>{
+      rpc('nudge_send',{p_code:S.code,p_from:S.playerId,p_to:id,p_kind:'crown'}).then(()=>notify({action:'event',code:S.code,from:S.playerId,type:'nudge',to:id,kind:'crown'})).catch(()=>{});
+    });
+  })();
+  return note;
 }
 
 /* ---------- settings: invite, notifications, leave ---------- */
@@ -759,11 +830,11 @@ async function paintPush(){
   if(st==='denied'){box.innerHTML='<p class="bad">Notifications are blocked for this app. Turn them on in Settings > Notifications > TUNGA, then come back.</p>';return}
   if(!players[S.playerId]){box.innerHTML='<p>Create your character first.</p>';return}
   let sub=null; try{const reg=await swReady; sub=reg&&await reg.pushManager.getSubscription()}catch(e){}
-  if(st==='granted'&&sub){box.innerHTML='<p class="ok">On for this device.</p><div class="rowbtns"><button class="btn small" id="testBtn" onclick="testPush()">Send me a test</button></div>';return}
+  if(st==='granted'&&sub){box.innerHTML='<p class="ok">On for this device.</p><div class="rowbtns"><button class="btn small" id="testBtn" onclick="testPush()">Send me a test</button><button class="btn small ghost" id="pushBtn" onclick="enablePush(true)">Re-register this phone</button></div><div class="hint">No test arriving? Tap Re-register, then test again. Also check iPhone Settings > Notifications > TUNGA.</div>';return}
   box.innerHTML='<p>Get a ping when your party checks in, nudges you, or goes overdue.</p><div class="rowbtns"><button class="btn small primary" id="pushBtn" onclick="enablePush()">Turn on notifications</button></div>';
 }
 function keyBytes(b64){b64=b64.replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';return Uint8Array.from(atob(b64),c=>c.charCodeAt(0))}
-async function enablePush(){
+async function enablePush(fresh){
   const btn=$('#pushBtn'); if(btn) btn.disabled=true;
   try{
     const perm=await Notification.requestPermission();
@@ -773,9 +844,10 @@ async function enablePush(){
     const k=await notify({action:'key'});
     if(!k||!k.publicKey){toast('The notification server isn’t answering yet.',5000);paintPush();return}
     let sub=await reg.pushManager.getSubscription();
+    if(sub&&fresh===true){await rpc('push_remove',{p_endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe().catch(()=>{});sub=null}
     if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyBytes(k.publicKey)});
     await rpc('push_save',{p_code:S.code,p_player:S.playerId,p_sub:sub.toJSON()});
-    toast('Notifications on.');
+    toast(fresh===true?'Phone re-registered. Now send a test.':'Notifications on.');
   }catch(e){toast('Couldn’t turn on notifications: '+e.message,5000)}
   paintPush();
 }
@@ -789,7 +861,10 @@ async function resyncPush(){
 async function testPush(){
   const b=$('#testBtn'); b.disabled=true;
   const r=await notify({action:'event',code:S.code,from:S.playerId,type:'test'});
-  toast(!r?'The notification server didn’t answer.':r.sent?'Test sent. It should arrive in a few seconds.':'Server found no working device for you. Turn notifications off and on again.',5000);
+  toast(!r?'The notification server didn’t answer.'
+    :r.sent?'Test sent. It should arrive in a few seconds. Nothing? Check iPhone Settings > Notifications > TUNGA, and Focus modes.'
+    :!r.devices?'The server has no record of this phone. Tap Re-register this phone, then test again.'
+    :'The push service refused it: '+((r.why||[]).join('; ')||'no reason given')+'. Tell Lari exactly what this says.',9000);
   setTimeout(()=>{b.disabled=false},4000);
 }
 let leaveArmed=false;
