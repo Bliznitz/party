@@ -487,7 +487,7 @@
   async function netOpen() {
     const cfg = G.opts.net, mine = G;
     try {
-      await loadScript('supabase.js'); if (G !== mine) return;
+      await loadScript('supabase.js?v=6'); if (G !== mine) return;
       const cl = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }, realtime: { params: { eventsPerSecond: 40 } } });
       const ch = cl.channel(cfg.room, { config: { broadcast: { self: false, ack: false } } });
       ch.on('broadcast', { event: 'g' }, (m) => { if (G === mine) onNet(m.payload || {}); });
